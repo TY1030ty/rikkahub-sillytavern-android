@@ -10,7 +10,7 @@
   <string name="about_page_version">Version</string>
   <string name="about_page_website">Website</string>
   <string name="add">Add</string>
-  <string name="app_name">Lantern</string>
+  <string name="app_name">影·Shadow</string>
   <string name="asr_button_content_description">Speech Recognition</string>
   <string name="asr_button_stop">Stop</string>
   <string name="asr_step_hotwords_placeholder">hotword1, hotword2, hotword3</string>
@@ -3378,7 +3378,7 @@
   <string name="setting_page_announcement_desc">Reset “Don\'t show again” and show it on next launch</string>
   <string name="setting_page_onboarding">Onboarding</string>
   <string name="setting_page_onboarding_desc">Walk through the introduction again</string>
-  <string name="setting_page_feedback_group">Lantern Feedback Group</string>
+  <string name="setting_page_feedback_group">影·Shadow Feedback Group</string>
   <string name="setting_page_feedback_group_copied">Group number copied</string>
   <string name="theme_material_title">Interface material</string>
   <string name="theme_material_desc">Liquid glass: a translucent glass look that can follow the theme or be set manually</string>
