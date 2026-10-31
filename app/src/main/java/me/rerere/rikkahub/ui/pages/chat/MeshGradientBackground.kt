@@ -58,28 +58,28 @@ fun MeshGradientBackground(
     val baseGradient = if (dark) {
         // 暗色:顶部深蓝,向下渐隐到接近纯黑
         arrayOf(
-            0.0f to Color(0xFF1B2A45),
-            0.22f to Color(0xFF15223A),
-            0.45f to Color(0xFF0D1626),
-            0.65f to Color(0xFF0A0F18),
-            1.0f to Color(0xFF080B12),
+            0.0f to Color(0xFF221A38),
+            0.22f to Color(0xFF1B1530),
+            0.45f to Color(0xFF120E20),
+            0.65f to Color(0xFF0C0A14),
+            1.0f to Color(0xFF08060E),
         )
     } else {
         // 亮色:顶部偏蓝,向下渐隐到白
         arrayOf(
-            0.0f to Color(0xFFAFD0F2),
-            0.22f to Color(0xFFCBE0F6),
-            0.45f to Color(0xFFF1F7FD),
+            0.0f to Color(0xFFD6CCEA),
+            0.22f to Color(0xFFE4DCF4),
+            0.45f to Color(0xFFF7F4FC),
             0.65f to Color(0xFFFFFFFF),
             1.0f to Color(0xFFFFFFFF),
         )
     }
 
     // 光斑配色(蓝 / 青 / 淡蓝 / 暖色)及浓度,亮暗各一套
-    val blobBlue = if (dark) Color(0xFF3E6FB0) else Color(0xFF9EC5F0)
-    val blobTeal = if (dark) Color(0xFF2E7D74) else Color(0xFFA8E6E0)
-    val blobLightBlue = if (dark) Color(0xFF4A6E96) else Color(0xFFB6D7F2)
-    val blobWarm = if (dark) Color(0xFF7C5F9E) else Color(0xFFFFC8D2)
+    val blobBlue = if (dark) Color(0xFF5B4694) else Color(0xFFB9A7E8)
+    val blobTeal = if (dark) Color(0xFF4A3F7A) else Color(0xFFC9BCEE)
+    val blobLightBlue = if (dark) Color(0xFF6A559E) else Color(0xFFD3C7F2)
+    val blobWarm = if (dark) Color(0xFF7C5F9E) else Color(0xFFEFC9E6)
     val alphaBlue = if (dark) 0.56f else 0.72f
     val alphaTeal = if (dark) 0.44f else 0.56f
     val alphaLightBlue = if (dark) 0.48f else 0.62f
