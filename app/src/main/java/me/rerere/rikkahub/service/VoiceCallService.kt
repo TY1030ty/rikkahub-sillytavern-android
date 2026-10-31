@@ -104,6 +104,8 @@ class VoiceCallService : Service(), KoinComponent {
     private var ttsSentLength = 0
     // [自建版补丁] 记录当前正在朗读的是哪一条消息，换消息时把进度归零
     private var ttsMessageKey: Any? = null
+    // [自建版补丁] 已经念完、但还留在会话末尾的那条消息；新回复出现前不许再念它
+    private var skipMessageId: Any? = null
     // [自建版补丁] 上一次已经发出去的用户话；ASR provider 会把整场文字累加，这里按前缀裁掉
     private var lastSentText = ""
     private var isMuted = false
@@ -447,6 +449,7 @@ class VoiceCallService : Service(), KoinComponent {
             )
         }
         ttsSentLength = 0
+        skipMessageId = ttsMessageKey      // [自建版补丁] 上一条已念过的，别重念
         lastSentText = transcript          // [自建版补丁] 记住已发的这句
         lastMessageSentAt = System.currentTimeMillis()
 
@@ -481,9 +484,11 @@ class VoiceCallService : Service(), KoinComponent {
                 // [自建版补丁] 换了一条消息就必须从 0 开始算，否则会接着上一条的进度
                 // 往下切：短句被吞、长句从中间截、偶尔重复上一句的尾巴。
                 val msgKey = lastMessage.id
+                if (msgKey == skipMessageId) return@collect   // [自建版补丁] 旧消息不再念
                 if (msgKey != ttsMessageKey) {
                     ttsMessageKey = msgKey
                     ttsSentLength = 0
+                    skipMessageId = null
                 }
 
                 if (currentText.length > ttsSentLength) {
