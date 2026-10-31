@@ -348,7 +348,19 @@ class VoiceCallService : Service(), KoinComponent {
             )
         }
         interruptDetectJob?.cancel()
-        if (!isMuted && ::asr.isInitialized && !asr.state.value.isRecording) {
+        // [自建版补丁] 每轮重开 ASR 会话。服务端 VAD 的 provider 会把整场通话的文字
+        // 累加在同一个 transcript 里，导致第二句发出去是「第一句+第二句」。
+        if (!isMuted && ::asr.isInitialized) {
+            asrMonitorJob?.cancel()
+            runCatching { asr.stop() }
+            serviceScope.launch {
+                kotlinx.coroutines.delay(250)
+                if (!isMuted && _uiState.value.status == VoiceCallStatus.Listening) {
+                    restartAsrAfterProviderStop()
+                    startAsrMonitor()
+                }
+            }
+        } else if (!isMuted && ::asr.isInitialized && !asr.state.value.isRecording) {
             restartAsrAfterProviderStop()
         }
         startVadDetection()
