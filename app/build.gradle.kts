@@ -195,6 +195,8 @@ android {
     ndkVersion = nativeNdkVersion
     defaultConfig {
         applicationId = "me.rerere.rikkahub.huadeng"
+        // [自建版补丁] 加后缀，与原版并存安装，互不覆盖
+        applicationIdSuffix = ".selfbuild"
         minSdk = 26
         targetSdk = 37
         // 跟随上游 3.1.1；versionCode 在本地线（238）上递增，保证覆盖安装
@@ -231,10 +233,11 @@ android {
         // 配合公开的签名证书即可完整复现密钥派生、解开插件载荷。
         // 因子现由 libhdguard.so 在运行时供给（见 app/src/main/cpp/hdguard.c），
         // 上面算出的 kdfFactor 仍用于校验 native 侧数据的一致性，但不进入 APK。
-        check(kdfFactor == HD_GUARD_EXPECTED_FACTOR) {
-            "[华灯] 签名口令推导出的因子与 libhdguard.so 内置值不一致。" +
-                "两者必须相同，否则 APK 无法解密 v2 插件。" +
-                "请重新生成 hdguard.c 中的 BLOB，或检查 local.properties 的签名口令。"
+        // [自建版补丁] 原版在这里 check 签名口令与 libhdguard.so 内置因子一致，
+        // 自建签名必然不一致，直接判失败。运行时因子由 .so 自己提供，不影响 APK 运行，
+        // 所以这里只告警不中止。
+        if (kdfFactor != HD_GUARD_EXPECTED_FACTOR) {
+            logger.warn("[自建版] 签名因子与 hdguard 内置值不一致（自签名的预期情况），已跳过校验")
         }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
