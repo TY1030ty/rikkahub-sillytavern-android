@@ -430,9 +430,13 @@ class VoiceCallService : Service(), KoinComponent {
             return
         }
 
-        if (_uiState.value.status == VoiceCallStatus.Speaking) {
-            interruptDetectJob?.cancel()
-            tts.stop()
+        // [自建版补丁] 不论当前状态，发新消息时都要把上一轮的语音队列清掉。
+        // 原来只在 Speaking 状态才 stop，状态是 Listening 时旧音频会留在队列里，
+        // 于是下一句开口先播上一句的声音（文字却是新的）。
+        interruptDetectJob?.cancel()
+        if (::tts.isInitialized) {
+            runCatching { tts.stop() }
+            runCatching { tts.cleanup() }
         }
 
         _uiState.update {
