@@ -75,11 +75,11 @@ import kotlin.uuid.Uuid
 
 private const val TAG = "VoiceCallPage"
 
-private val ColorIdle = Color(0xFF9D9A55)
-private val ColorListening = Color(0xFFC6BD56)
-private val ColorProcessing = Color(0xFFFDAE4F)
-private val ColorSpeaking = Color(0xFFF58232)
-private val ColorBgWarm = Color(0xFF17130E)
+private val ColorIdle = Color(0xFF5E5378)
+private val ColorListening = Color(0xFF7E6FA8)
+private val ColorProcessing = Color(0xFFA78BFA)
+private val ColorSpeaking = Color(0xFFB39DDB)
+private val ColorBgWarm = Color(0xFF14121C)
 
 private fun statusAccentColor(status: VoiceCallStatus): Color = when (status) {
     VoiceCallStatus.Idle -> ColorIdle
