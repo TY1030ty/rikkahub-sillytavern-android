@@ -82,6 +82,7 @@ fun rememberVoiceModeStarter(vm: ChatVM, settings: Settings): () -> Unit {
             else -> voice.start(
                 createAsr = { createVoiceAsr(context, client, checkNotNull(provider)) },
                 speak = if (tts.isAvailable.value) {
+                    var lastSpoken = ""
                     { reply ->
                         var text = reply
                         if (settings.displaySetting.ttsOnlyReadQuoted) {
@@ -92,7 +93,17 @@ fun rememberVoiceModeStarter(vm: ChatVM, settings: Settings): () -> Unit {
                         }
                         // tts.speak() 自己会去 Markdown，这里只判空，避免二次清洗把解码后的 &lt;tag&gt; 当标签删掉
                         if (text.stripMarkdown().isNotBlank()) {
-                            tts.speak(text)
+                            // [自建版补丁] 流式文字会以「越来越长的前缀」反复进来，
+                            // 每来一次就 speak(flush=true) 会从头上重念，听起来就是「又说上一句」。
+                            // 这里只把新增的那截追加进队列，不再打断已播的部分。
+                            val delta = if (lastSpoken.isNotEmpty() && text.startsWith(lastSpoken))
+                                text.removePrefix(lastSpoken).trim() else ""
+                            if (delta.isNotEmpty()) {
+                                tts.speak(delta, flushCalled = false)
+                            } else if (text != lastSpoken) {
+                                tts.speak(text, flushCalled = true)
+                            }
+                            lastSpoken = text
                             // playbackState.Ended is also emitted between chunks. isSpeaking
                             // remains true until the entire synthesis/playback queue finishes.
                             combine(tts.isSpeaking, tts.error) { speaking, error ->
