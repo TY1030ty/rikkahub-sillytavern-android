@@ -104,6 +104,8 @@ class VoiceCallService : Service(), KoinComponent {
     private var ttsSentLength = 0
     // [自建版补丁] 记录当前正在朗读的是哪一条消息，换消息时把进度归零
     private var ttsMessageKey: Any? = null
+    // [自建版补丁] 上一次已经发出去的用户话；ASR provider 会把整场文字累加，这里按前缀裁掉
+    private var lastSentText = ""
     private var isMuted = false
 
     companion object {
@@ -306,6 +308,15 @@ class VoiceCallService : Service(), KoinComponent {
         audioRoutePrepared = false
     }
 
+    private fun onAsrTranscript(raw: String) {
+        var t = raw
+        if (lastSentText.isNotEmpty()) {
+            val i = t.lastIndexOf(lastSentText)
+            if (i >= 0) t = t.substring(i + lastSentText.length)
+        }
+        _uiState.update { it.copy(userTranscript = t.trimStart()) }
+    }
+
     fun startCall() {
         if (_uiState.value.status != VoiceCallStatus.Idle) return
         ttsSentLength = 0
@@ -322,7 +333,7 @@ class VoiceCallService : Service(), KoinComponent {
         }
 
         try {
-            asr.start { transcript -> _uiState.update { it.copy(userTranscript = transcript) } }
+            asr.start { onAsrTranscript(it) }
         } catch (e: Exception) {
             Log.e(TAG, "启动 ASR 失败, conversationId=$conversationId", e)
             _uiState.update {
@@ -433,6 +444,7 @@ class VoiceCallService : Service(), KoinComponent {
             )
         }
         ttsSentLength = 0
+        lastSentText = transcript          // [自建版补丁] 记住已发的这句
         lastMessageSentAt = System.currentTimeMillis()
 
         // 每轮发送前重新挂好 Conversation / generationDone / error 监听，避免某个 provider
@@ -645,7 +657,7 @@ class VoiceCallService : Service(), KoinComponent {
     private fun restartAsrAfterProviderStop() {
         if (isMuted || _uiState.value.status != VoiceCallStatus.Listening) return
         runCatching {
-            asr.start { transcript -> _uiState.update { it.copy(userTranscript = transcript) } }
+            asr.start { onAsrTranscript(it) }
         }.onFailure {
             Log.e(TAG, "ASR 自动恢复失败", it)
             _uiState.update { state -> state.copy(errorMessage = l10n("麦克风恢复失败: ${it.message}", "Failed to restore microphone: ${it.message}")) }
@@ -659,7 +671,7 @@ class VoiceCallService : Service(), KoinComponent {
                 asr.stop()
                 isMuted = true
             } else {
-                asr.start { transcript -> _uiState.update { it.copy(userTranscript = transcript) } }
+                asr.start { onAsrTranscript(it) }
                 isMuted = false
             }
             _uiState.update { it.copy(isMuted = isMuted) }
@@ -706,6 +718,11 @@ class VoiceCallService : Service(), KoinComponent {
         if (clearActiveState) clearActiveCallState()
         runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
             .onFailure { Log.e(TAG, "stopForeground 失败", it) }
+        // [自建版补丁] 状态更新时用的是普通 notify，stopForeground 撤不掉它，必须显式取消
+        runCatching {
+            androidx.core.app.NotificationManagerCompat.from(this).cancel(NOTIFICATION_ID)
+        }.onFailure { Log.e(TAG, "取消通话通知失败", it) }
+        lastSentText = ""
     }
 
     private fun releaseControllers() {
