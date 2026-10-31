@@ -436,7 +436,6 @@ class VoiceCallService : Service(), KoinComponent {
         interruptDetectJob?.cancel()
         if (::tts.isInitialized) {
             runCatching { tts.stop() }
-            runCatching { tts.cleanup() }
         }
 
         _uiState.update {
