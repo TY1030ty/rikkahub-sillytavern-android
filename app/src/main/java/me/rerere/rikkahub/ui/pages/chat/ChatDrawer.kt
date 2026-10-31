@@ -1180,7 +1180,14 @@ private fun DrawerActions(
     settings: Settings,
 ) {
     Column {
-        // 历史记录入口，行尾是搜索入口
+        // 聊天记录搜索入口：单独一行，比「历史记录」行尾的小放大镜好找
+        DrawerEntry(
+            icon = HugeIcons.Search01,
+            text = stringResource(R.string.chat_page_search_messages),
+            onClick = { navController.navigate(Screen.MessageSearch) },
+        )
+
+        // 历史记录入口，行尾也留一个搜索入口
         DrawerEntry(
             icon = HugeIcons.TransactionHistory,
             text = stringResource(R.string.chat_page_history),

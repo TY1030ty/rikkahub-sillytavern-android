@@ -353,6 +353,7 @@
   <string name="chat_page_save">Save</string>
   <string name="chat_page_scroll_to_bottom">Scroll to bottom</string>
   <string name="chat_page_search_chats">Search Chats</string>
+  <string name="chat_page_search_messages">Search Chat History</string>
   <string name="chat_page_select_opening">Select opening</string>
   <string name="chat_page_today">Today</string>
   <string name="chat_page_yesterday">Yesterday</string>
@@ -3442,6 +3443,7 @@
   <string name="assistant_importer_worldbook_name">%1$s Worldbook</string>
   <string name="setting_display_color_read_file_failed">Couldn\'t read the selected file</string>
   <string name="setting_display_color_read_image_failed">Couldn\'t read the selected image</string>
+  <string name="setting_display_color_import_failed">Import failed: %1$s</string>
   <string name="setting_display_color_unsupported_data_uri">Unsupported data URI</string>
   <string name="setting_display_color_unsupported_resource_url">Unsupported resource URL</string>
   <string name="setting_display_color_background_too_large">Background image is too large (>25 MB)</string>

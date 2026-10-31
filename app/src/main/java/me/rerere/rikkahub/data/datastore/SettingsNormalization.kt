@@ -4,7 +4,7 @@ import me.rerere.ai.provider.ProviderSetting
 
 /** 读盘后和每次修改后都要过一遍，保证内存里的设置始终是规整的。 */
 internal fun Settings.normalized(): Settings =
-    withBuiltInDefaults().withoutInvalidReferences().withValuesInRange()
+    withBuiltInDefaults().withoutInvalidReferences().withValuesInRange().withoutUnusableImagePaths()
 
 // 已下架的内置网关：id 命中清单，或 baseUrl 命中历史版本内置过的网关域名
 private fun ProviderSetting.isRemovedGateway(): Boolean {
@@ -117,3 +117,37 @@ private fun Settings.withValuesInRange(): Settings = copy(
     // 官方 world_info_budget 是百分比，盘上的旧值可能越界
     worldInfoBudget = worldInfoBudget.coerceIn(0, 100),
 )
+
+// file:// 背景下这一条是否还能读到；读不到就当没设置
+private fun String?.aliveImagePath(): String? {
+    if (this.isNullOrBlank()) return null
+    if (!startsWith("file:", ignoreCase = true)) return this
+    val filePath = runCatching { android.net.Uri.parse(this).path }.getOrNull() ?: return null
+    return takeIf { java.io.File(filePath).isFile }
+}
+
+/**
+ * 清理指向「别的包 / 文件已不存在」的图片路径。
+ * 从备份导入后这些路径还写着旧包名（例如 .../me.rerere.rikkahub.huadeng/files/...），
+ * 本应用读不到，却因为「非空」一直霸占聊天背景的第一优先级，把渐变和角色卡背景挡在后面。
+ */
+private fun Settings.withoutUnusableImagePaths(): Settings {
+    val display = displaySetting
+    val fixedDisplay = display.copy(
+        chatBackgroundImagePath = display.chatBackgroundImagePath.aliveImagePath().orEmpty(),
+        settingBackgroundImagePath = display.settingBackgroundImagePath.aliveImagePath().orEmpty(),
+        drawerBackgroundPath = display.drawerBackgroundPath.aliveImagePath().orEmpty(),
+        userBubbleImagePath = display.userBubbleImagePath.aliveImagePath().orEmpty(),
+        assistantBubbleImagePath = display.assistantBubbleImagePath.aliveImagePath().orEmpty(),
+    )
+    val fixedAssistants = assistants.map { assistant ->
+        val background = assistant.background
+        if (background != null && background.aliveImagePath() == null) {
+            assistant.copy(background = null)
+        } else {
+            assistant
+        }
+    }
+    if (fixedDisplay == display && fixedAssistants == assistants) return this
+    return copy(displaySetting = fixedDisplay, assistants = fixedAssistants)
+}

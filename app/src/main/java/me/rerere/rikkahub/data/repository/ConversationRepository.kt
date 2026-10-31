@@ -355,6 +355,9 @@ class ConversationRepository(
     suspend fun searchMessagesOfAssistants(keyword: String, assistantIds: Set<Uuid>) =
         messageFtsManager.search(keyword, MessageSearchSort.RELEVANCE, assistantIds.map { it.toString() })
 
+    /** 聊天记录搜索索引当前有多少行 */
+    suspend fun messageSearchIndexRowCount(): Int = messageFtsManager.indexedRowCount()
+
     suspend fun rebuildAllIndexes(onProgress: (current: Int, total: Int) -> Unit = { _, _ -> }) {
         messageFtsManager.deleteAll()
         val allIds = conversationDAO.getAllIds()

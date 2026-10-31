@@ -353,6 +353,7 @@
   <string name="chat_page_save">保存</string>
   <string name="chat_page_scroll_to_bottom">滚动到底部</string>
   <string name="chat_page_search_chats">搜索聊天</string>
+  <string name="chat_page_search_messages">搜索聊天记录</string>
   <string name="chat_page_select_opening">选择开场白</string>
   <string name="chat_page_today">今天</string>
   <string name="chat_page_yesterday">昨天</string>
@@ -3436,6 +3437,7 @@
   <string name="assistant_importer_worldbook_name">%1$s世界书</string>
   <string name="setting_display_color_read_file_failed">无法读取所选文件</string>
   <string name="setting_display_color_read_image_failed">无法读取所选图片</string>
+  <string name="setting_display_color_import_failed">图片导入失败：%1$s</string>
   <string name="setting_display_color_unsupported_data_uri">不支持的 data URI</string>
   <string name="setting_display_color_unsupported_resource_url">不支持的资源地址</string>
   <string name="setting_display_color_background_too_large">背景图过大（>25MB）</string>

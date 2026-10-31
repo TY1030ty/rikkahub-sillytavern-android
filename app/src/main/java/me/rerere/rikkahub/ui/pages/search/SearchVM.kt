@@ -71,6 +71,21 @@ class SearchVM(
             searchRequests.receiveAsFlow().collectLatest { request -> performSearch(request) }
         }
         viewModelScope.launch {
+            // 索引为空（典型：刚导入备份、或从旧版本升上来）时自动补建一次，
+            // 否则搜索页打开就是一片空白，看着像「没有这个功能」
+            runCatching {
+                if (conversationRepo.messageSearchIndexRowCount() == 0) {
+                    isRebuilding = true
+                    try {
+                        conversationRepo.rebuildAllIndexes()
+                    } finally {
+                        isRebuilding = false
+                    }
+                }
+            }
+            if (searchQuery.isNotBlank()) search()
+        }
+        viewModelScope.launch {
             settingsStore.settingsFlow
                 .map { it.getCurrentAssistant().id }
                 .distinctUntilChanged()

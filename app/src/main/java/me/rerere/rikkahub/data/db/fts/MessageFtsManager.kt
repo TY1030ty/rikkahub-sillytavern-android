@@ -65,6 +65,13 @@ class MessageFtsManager(private val database: AppDatabase) {
         db.execSQL("DELETE FROM message_fts")
     }
 
+    /** 索引里现有多少行：为 0 说明索引没建（例如刚导完备份），搜索会「什么都搜不到」 */
+    suspend fun indexedRowCount(): Int = withContext(Dispatchers.IO) {
+        db.rawQuery("SELECT COUNT(*) FROM message_fts", null).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getInt(0) else 0
+        }
+    }
+
     suspend fun search(
         keyword: String,
         sort: MessageSearchSort = MessageSearchSort.RELEVANCE,

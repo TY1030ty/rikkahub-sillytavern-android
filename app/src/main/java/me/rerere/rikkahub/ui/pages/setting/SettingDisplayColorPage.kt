@@ -113,6 +113,7 @@ internal fun SettingDisplayColorContent(vm: SettingVM, contentPadding: PaddingVa
     }
 
     // 图片导入：拷贝到应用私有目录并存文件 URI，避免 content URI 权限失效
+    val importerToaster = LocalToaster.current
     @Composable
     fun rememberImageImporter(onImported: (String) -> Unit): ManagedActivityResultLauncher<String, Uri?> {
         return rememberLauncherForActivityResult(
@@ -120,9 +121,21 @@ internal fun SettingDisplayColorContent(vm: SettingVM, contentPadding: PaddingVa
         ) { uri ->
             uri ?: return@rememberLauncherForActivityResult
             scope.launch {
+                // 以前这里静默吞掉异常：选完相册没反应、也没提示，看起来像「功能坏了」。
+                // 现在失败就把原因说出来。
                 runCatching {
                     withContext(Dispatchers.IO) { importThemeImage(context, uri) }
-                }.onSuccess { path -> onImported(path) }
+                }.onSuccess { path ->
+                    onImported(path)
+                }.onFailure { error ->
+                    importerToaster.show(
+                        context.getString(
+                            R.string.setting_display_color_import_failed,
+                            error.message.orEmpty()
+                        ),
+                        type = ToastType.Error
+                    )
+                }
             }
         }
     }
@@ -154,7 +167,7 @@ internal fun SettingDisplayColorContent(vm: SettingVM, contentPadding: PaddingVa
     }
 
     // 酒馆（SillyTavern）主题导入：选 JSON → 解析 → 确认对话框预览覆盖项 → 应用
-    val toaster = LocalToaster.current
+    val toaster = importerToaster
     var pendingTheme by remember { mutableStateOf<SillyTavernTheme?>(null) }
     val themePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()

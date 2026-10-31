@@ -469,7 +469,11 @@ private fun ChatPageContent(
             ?: MaterialTheme.colorScheme.background,
         modifier = Modifier.fillMaxSize()
     ) {
-        AssistantBackground(setting = setting, modifier = Modifier.hazeSource(hazeState))
+        AssistantBackground(
+            setting = setting,
+            assistant = assistant,
+            modifier = Modifier.hazeSource(hazeState),
+        )
     // WebView 工具条点按钮 → 原生菜单；处理完清空避免重复触发
     var proxyMenu by remember { mutableStateOf<String?>(null) }
     val pageScope = rememberCoroutineScope()
