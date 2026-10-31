@@ -2,7 +2,7 @@
 <resources>
   <string name="about_page_author_repo">作者仓库</string>
   <string name="about_page_author_repo_desc">本定制版的源码仓库</string>
-  <string name="about_page_custom_build">华灯定制版 %1$s / %2$s</string>
+  <string name="about_page_custom_build">影·Shadow 定制版 %1$s / %2$s</string>
   <string name="about_page_github">Github</string>
   <string name="about_page_license">License</string>
   <string name="about_page_system">系统</string>
@@ -10,7 +10,7 @@
   <string name="about_page_version">版本</string>
   <string name="about_page_website">官网</string>
   <string name="add">添加</string>
-  <string name="app_name">华灯</string>
+  <string name="app_name">影·Shadow</string>
   <string name="asr_button_content_description">语音识别</string>
   <string name="asr_button_stop">停止</string>
   <string name="asr_step_hotwords_placeholder">热词1, 热词2, 热词3</string>
@@ -585,7 +585,7 @@
   <string name="donate_page_kofi_desc">面向全球用户</string>
   <string name="donate_page_sponsor_list">赞助用户列表</string>
   <string name="donate_page_title">赞助</string>
-  <string name="donate_page_upstream_notice">本赞助是赞助上游rikkahub作者，不是『华灯』作者，感谢上游开发者的无私开源，也衷心的感谢您对开源项目的支持!!!</string>
+  <string name="donate_page_upstream_notice">本赞助是赞助上游rikkahub作者，不是『影·Shadow』作者，感谢上游开发者的无私开源，也衷心的感谢您对开源项目的支持!!!</string>
   <string name="edit">编辑</string>
   <string name="editing">编辑中</string>
   <string name="emoji_picker_search_placeholder">搜索表情符号...</string>
@@ -703,7 +703,7 @@
   <string name="huadeng_tool_result_truncation_desc">工具输出超过 32KB 时自动截断并保存到文件。关闭后工具结果不截断，完整内容保留在消息历史中（若中转站导致工具调用异常，可尝试关闭)</string>
   <string name="huadeng_sub_agent">子 agent</string>
   <string name="huadeng_sub_agent_desc">允许 AI 把子任务派给独立的子 agent 执行（不产生会话历史），完成后取回结果</string>
-  <string name="huadeng_frontend_card_mode">华灯前端内核</string>
+  <string name="huadeng_frontend_card_mode">影·Shadow 前端内核</string>
   <string name="huadeng_frontend_card_mode_desc">自动识别开场白或世界书中的网页，也可按角色卡强制开启或关闭</string>
   <string name="huadeng_frontend_card_auto_switched">已自动切换前端模式</string>
   <string name="huadeng_frontend_card_slash_unsupported">前端卡命令 %1$s 暂未支持</string>
@@ -1953,7 +1953,7 @@
   <string name="tavern_section_extensions">扩展</string>
   <string name="tavern_section_compat">兼容与运行</string>
   <string name="tavern_section_automation">自动化</string>
-  <string name="setting_page_huadeng">华灯设置</string>
+  <string name="setting_page_huadeng">影·Shadow 设置</string>
   <string name="setting_page_huadeng_desc">决策模型、BOT、兼容和审批</string>
   <string name="setting_page_huadeng_title">兼容与辅助</string>
   <string name="setting_page_huadeng_title_desc">连接修复、空响应兜底、内容裁剪、上下文压缩等全局开关</string>
@@ -3183,7 +3183,7 @@
   <string name="weixin_bot_scan_prompt">请用微信扫码</string>
   <string name="weixin_bot_unnamed">未命名</string>
   <string name="huadeng_frontend_card_mode_auto">自动识别（开场白或世界书含网页时切换）</string>
-  <string name="huadeng_frontend_card_mode_always">总是使用华灯前端内核</string>
+  <string name="huadeng_frontend_card_mode_always">总是使用影·Shadow 前端内核</string>
   <string name="huadeng_frontend_card_mode_never">总是使用原生界面</string>
   <string name="setting_page_huadeng_compat">兼容与辅助</string>
   <string name="setting_provider_page_context_length">上下文长度</string>
@@ -3372,7 +3372,7 @@
   <string name="setting_page_announcement_desc">重置「不再提示」，下次启动重新显示</string>
   <string name="setting_page_onboarding">新手引导</string>
   <string name="setting_page_onboarding_desc">重新看一遍新手引导</string>
-  <string name="setting_page_feedback_group">华灯反馈群</string>
+  <string name="setting_page_feedback_group">影·Shadow 反馈群</string>
   <string name="setting_page_feedback_group_copied">群号已复制</string>
   <string name="theme_material_title">界面材质</string>
   <string name="theme_material_desc">液态玻璃：半透明玻璃质感，可跟随主题或手动指定</string>
