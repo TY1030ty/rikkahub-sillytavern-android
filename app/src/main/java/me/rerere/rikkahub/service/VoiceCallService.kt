@@ -322,6 +322,11 @@ class VoiceCallService : Service(), KoinComponent {
     fun startCall() {
         if (_uiState.value.status != VoiceCallStatus.Idle) return
         spokenMessageIds.clear()   // [自建版补丁]
+        // [自建版补丁] 通话开始前会话里已有的最后一条助手消息，同样不许再念一次
+        runCatching {
+            val prev = conversation.value.currentMessages.lastOrNull { it.role == MessageRole.ASSISTANT }
+            if (prev != null) spokenMessageIds.add(prev.id)
+        }
         ttsSentLength = 0
         isMuted = false
         prepareAudioRoute()
