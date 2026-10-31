@@ -102,6 +102,8 @@ class VoiceCallService : Service(), KoinComponent {
 
     /** 已经发送给流式 TTS 的 assistant 文本长度。 */
     private var ttsSentLength = 0
+    // [自建版补丁] 记录当前正在朗读的是哪一条消息，换消息时把进度归零
+    private var ttsMessageKey: Any? = null
     private var isMuted = false
 
     companion object {
@@ -448,6 +450,14 @@ class VoiceCallService : Service(), KoinComponent {
 
                 val currentText = lastMessage.toText()
                 _uiState.update { it.copy(assistantText = currentText) }
+
+                // [自建版补丁] 换了一条消息就必须从 0 开始算，否则会接着上一条的进度
+                // 往下切：短句被吞、长句从中间截、偶尔重复上一句的尾巴。
+                val msgKey = lastMessage.id
+                if (msgKey != ttsMessageKey) {
+                    ttsMessageKey = msgKey
+                    ttsSentLength = 0
+                }
 
                 if (currentText.length > ttsSentLength) {
                     val newText = currentText.substring(ttsSentLength)
