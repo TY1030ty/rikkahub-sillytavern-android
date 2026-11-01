@@ -38,6 +38,9 @@ import me.rerere.ai.ui.UIMessagePart
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.VOICE_CALL_NOTIFICATION_CHANNEL_ID
 import me.rerere.rikkahub.data.datastore.SettingsStore
+import me.rerere.rikkahub.data.datastore.getCurrentAssistant
+import me.rerere.rikkahub.data.datastore.getSelectedTTSProvider
+import me.rerere.rikkahub.data.datastore.withVoice
 import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.ui.activity.ShortcutHandlerActivity
 import me.rerere.rikkahub.ui.hooks.CustomAsrState
@@ -214,6 +217,11 @@ class VoiceCallService : Service(), KoinComponent {
 
                 asr = createCustomAsrState(applicationContext, httpClient, settingsStore)
                 tts = createCustomTtsState(applicationContext, settingsStore)
+                // 角色专属音色：通话也跟当前角色走，否则电话里还是全局那把嗓子
+                runCatching {
+                    val s = settingsStore.settingsFlow.value
+                    tts.updateProvider(s.getSelectedTTSProvider()?.withVoice(s.getCurrentAssistant().ttsVoice))
+                }
                 startCall()
 
                 launch {
