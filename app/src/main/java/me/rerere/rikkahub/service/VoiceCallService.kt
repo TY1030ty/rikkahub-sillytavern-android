@@ -38,7 +38,7 @@ import me.rerere.ai.ui.UIMessagePart
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.VOICE_CALL_NOTIFICATION_CHANNEL_ID
 import me.rerere.rikkahub.data.datastore.SettingsStore
-import me.rerere.rikkahub.data.datastore.getCurrentAssistant
+import me.rerere.rikkahub.data.datastore.getAssistantOf
 import me.rerere.rikkahub.data.datastore.getSelectedTTSProvider
 import me.rerere.rikkahub.data.datastore.withVoice
 import me.rerere.rikkahub.data.model.Conversation
@@ -220,7 +220,9 @@ class VoiceCallService : Service(), KoinComponent {
                 // 角色专属音色：通话也跟当前角色走，否则电话里还是全局那把嗓子
                 runCatching {
                     val s = settingsStore.settingsFlow.value
-                    tts.updateProvider(s.getSelectedTTSProvider()?.withVoice(s.getCurrentAssistant().ttsVoice))
+                    // 用这个通话所属的角色，而不是「当前助手」：否则给姐姐打电话会串成别的角色的嗓子
+                    val callAssistant = s.getAssistantOf(conversation.value)
+                    tts.updateProvider(s.getSelectedTTSProvider()?.withVoice(callAssistant.ttsVoice))
                 }
                 startCall()
 
