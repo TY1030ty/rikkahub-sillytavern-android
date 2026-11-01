@@ -465,6 +465,14 @@ private fun ChatPageContent(
 
     TTSAutoPlay(vm = vm, setting = setting, conversation = conversation)
 
+    // 打开这个对话就把未读标记清掉（会话列表那个小点）
+    LaunchedEffect(conversation.id) {
+        context.getSharedPreferences("conversation_unread", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putLong(conversation.id.toString(), System.currentTimeMillis())
+            .apply()
+    }
+
     // 角色专属音色：切到这个角色时，把全局 TTS 提供商换成他/她自己的嗓子
     val roleTts = LocalTTSState.current
     LaunchedEffect(assistant.ttsVoice, setting.selectedTTSProviderId, setting.ttsProviders) {

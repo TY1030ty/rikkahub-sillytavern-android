@@ -273,8 +273,23 @@ private fun ConversationItem(
             Text(
                 text = conversation.title.ifBlank { stringResource(id = R.string.chat_page_new_message) },
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
+            // 未读点：上次打开这个对话之后又有新内容（含她主动说的）
+            val unreadCtx = androidx.compose.ui.platform.LocalContext.current
+            val lastOpenedAt = remember(conversation.id) {
+                unreadCtx.getSharedPreferences("conversation_unread", android.content.Context.MODE_PRIVATE)
+                    .getLong(conversation.id.toString(), 0L)
+            }
+            if (conversation.updateAt.toEpochMilli() > lastOpenedAt) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
             Spacer(Modifier.weight(1f))
 
             // 置顶图标
