@@ -1365,7 +1365,14 @@ private fun buildUserContext(
     // 对标 CC getUserContext: currentDate
     // 提示词缓存：本函数整体注入上下文尾部（generateInternal 的 base buildList 末尾），
     // 日期（每天变化）不进入前缀区；记忆走带 tag 的冻结锚点块（同样不进前缀区）
-    contextMap["currentDate"] = "Current date: ${java.time.LocalDate.now()}."
+    // 日期以外再带上时刻和星期：她不必依赖「时间提醒」开关也知道现在是几点
+    val nowDateTime = java.time.LocalDateTime.now()
+    val weekdayName = nowDateTime.dayOfWeek.getDisplayName(
+        java.time.format.TextStyle.FULL,
+        java.util.Locale.ENGLISH
+    )
+    contextMap["currentDate"] = "Current date: ${nowDateTime.toLocalDate()} ($weekdayName), " +
+        "current time: ${nowDateTime.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))}."
     if (recentChats.isNotBlank()) {
         contextMap["recentChats"] = recentChats.trim()
     }
