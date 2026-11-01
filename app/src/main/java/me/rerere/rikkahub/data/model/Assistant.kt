@@ -66,6 +66,8 @@ data class Assistant(
     val regexes: List<AssistantRegex> = emptyList(),
     val reasoningLevel: ReasoningLevel = ReasoningLevel.AUTO,
     val maxTokens: Int? = null,
+    // 该角色专用的 TTS 音色（填提供商的音色名，如 bella）；空 = 跟随全局
+    val ttsVoice: String? = null,
     val customHeaders: List<CustomHeader> = emptyList(),
     val customBodies: List<CustomBody> = emptyList(),
     val mcpServers: Set<Uuid> = emptySet(),

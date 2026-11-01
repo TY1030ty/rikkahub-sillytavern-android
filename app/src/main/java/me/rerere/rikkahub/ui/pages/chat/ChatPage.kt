@@ -107,6 +107,7 @@ import me.rerere.rikkahub.data.datastore.getCurrentAssistant
 import me.rerere.rikkahub.data.datastore.findProvider
 import me.rerere.rikkahub.data.datastore.getSelectedASRProvider
 import me.rerere.rikkahub.data.datastore.getSelectedTTSProvider
+import me.rerere.rikkahub.data.datastore.withVoice
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.model.Assistant
 import me.rerere.rikkahub.data.model.Conversation
@@ -463,6 +464,12 @@ private fun ChatPageContent(
     }
 
     TTSAutoPlay(vm = vm, setting = setting, conversation = conversation)
+
+    // 角色专属音色：切到这个角色时，把全局 TTS 提供商换成他/她自己的嗓子
+    val roleTts = LocalTTSState.current
+    LaunchedEffect(assistant.ttsVoice, setting.selectedTTSProviderId, setting.ttsProviders) {
+        roleTts.updateProvider(setting.getSelectedTTSProvider()?.withVoice(assistant.ttsVoice))
+    }
 
     Surface(
         color = setting.displaySetting.chatBackgroundColor?.toComposeColor()

@@ -93,6 +93,9 @@ interface CustomTtsState {
      * Speaks the given text using the selected TTS provider.
      * Long texts will be automatically chunked and queued.
      */
+    /** 切换底层 TTS 提供商（角色专属音色用） */
+    fun updateProvider(provider: TTSProviderSetting?)
+
     fun speak(text: String, flushCalled: Boolean = true)
 
     /** Stops the current speech and clears the queue. */
@@ -154,7 +157,7 @@ private class CustomTtsStateImpl(
     override val totalChunks: StateFlow<Int> get() = controller.totalChunks
     override val playbackState: StateFlow<PlaybackState> get() = controller.playbackState
 
-    fun updateProvider(provider: TTSProviderSetting?) {
+    override fun updateProvider(provider: TTSProviderSetting?) {
         controller.setProvider(provider)
     }
 

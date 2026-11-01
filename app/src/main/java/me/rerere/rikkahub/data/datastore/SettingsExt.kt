@@ -98,6 +98,24 @@ fun Settings.getSelectedTTSProvider(): TTSProviderSetting? {
     } ?: ttsProviders.firstOrNull()
 }
 
+/** 把 TTS 提供商换成指定音色（各提供商的音色字段名不一样，这里统一处理） */
+fun TTSProviderSetting.withVoice(voice: String?): TTSProviderSetting {
+    val v = voice?.trim().orEmpty()
+    if (v.isEmpty()) return this
+    return when (this) {
+        is TTSProviderSetting.OpenAI -> copy(voice = v)
+        is TTSProviderSetting.Gemini -> copy(voiceName = v)
+        is TTSProviderSetting.MiniMax -> copy(voiceId = v)
+        is TTSProviderSetting.Qwen -> copy(voice = v)
+        is TTSProviderSetting.Groq -> copy(voice = v)
+        is TTSProviderSetting.XAI -> copy(voiceId = v)
+        is TTSProviderSetting.MiMo -> copy(voice = v)
+        is TTSProviderSetting.ElevenLabs -> copy(voiceId = v)
+        is TTSProviderSetting.Step -> copy(voice = v)
+        else -> this
+    }
+}
+
 /** 当前选中的 ASR 提供商，未选择或选中的 ID 已不存在时回退到第一个。 */
 fun Settings.getSelectedASRProvider(): ASRProviderSetting? {
     return selectedASRProviderId?.let { id ->

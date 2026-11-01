@@ -354,6 +354,8 @@
   <string name="chat_page_scroll_to_bottom">Scroll to bottom</string>
   <string name="chat_page_search_chats">Search Chats</string>
   <string name="chat_page_search_messages">Search Chat History</string>
+  <string name="assistant_page_tts_voice">Voice (this character)</string>
+  <string name="assistant_page_tts_voice_desc">Voice name of the current TTS provider, e.g. bella. Empty = global voice.</string>
   <string name="chat_page_select_opening">Select opening</string>
   <string name="chat_page_today">Today</string>
   <string name="chat_page_yesterday">Yesterday</string>

@@ -354,6 +354,8 @@
   <string name="chat_page_scroll_to_bottom">滚动到底部</string>
   <string name="chat_page_search_chats">搜索聊天</string>
   <string name="chat_page_search_messages">搜索聊天记录</string>
+  <string name="assistant_page_tts_voice">专属音色</string>
+  <string name="assistant_page_tts_voice_desc">填当前 TTS 提供商的音色名（如 bella）；留空就跟随全局</string>
   <string name="chat_page_select_opening">选择开场白</string>
   <string name="chat_page_today">今天</string>
   <string name="chat_page_yesterday">昨天</string>
