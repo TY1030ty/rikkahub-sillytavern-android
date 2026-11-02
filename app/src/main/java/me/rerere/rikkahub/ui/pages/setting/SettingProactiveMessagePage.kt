@@ -418,22 +418,27 @@ fun SettingProactiveMessagePage(
                     item {
                         PickerRow(
                             label = stringResource(R.string.proactive_use_current_assistant),
-                            selected = proactive.assistantId.isBlank(),
+                            selected = proactive.assistantId.isBlank() && proactive.assistantIds.isEmpty(),
                             onClick = {
-                                applySetting(proactive.copy(assistantId = ""))
+                                applySetting(proactive.copy(assistantId = "", assistantIds = emptyList()))
                                 assistantPickerExpanded = false
                             },
                         )
                     }
                     items(settings.assistants.size) { i ->
                         val assistant = settings.assistants[i]
+                        val aid = assistant.id.toString()
                         PickerRow(
                             label = assistant.name.ifBlank { stringResource(R.string.proactive_unnamed) },
-                            selected = proactive.assistantId.isNotBlank() &&
-                                assistant.id.toString() == proactive.assistantId,
+                            selected = aid in proactive.assistantIds || aid == proactive.assistantId,
                             onClick = {
-                                applySetting(proactive.copy(assistantId = assistant.id.toString()))
-                                assistantPickerExpanded = false
+                                // 多选：点一下加进来，再点一下移出去，弹窗不关
+                                val next = if (aid in proactive.assistantIds) {
+                                    proactive.assistantIds - aid
+                                } else {
+                                    proactive.assistantIds + aid
+                                }
+                                applySetting(proactive.copy(assistantIds = next, assistantId = ""))
                             },
                         )
                     }

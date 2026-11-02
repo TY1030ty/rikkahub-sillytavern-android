@@ -252,8 +252,12 @@ class ProactiveMessageRunner(
                 }
 
                 // 获取助手（设置里指定或当前助手）
-                val assistant = settings.assistants.find { it.id.toString() == proactiveSetting.assistantId }
-                    ?: settings.getCurrentAssistant()
+                val candidates = if (proactiveSetting.assistantIds.isNotEmpty()) {
+                    settings.assistants.filter { it.id.toString() in proactiveSetting.assistantIds }
+                } else {
+                    settings.assistants.filter { it.id.toString() == proactiveSetting.assistantId }
+                }
+                val assistant = candidates.randomOrNull() ?: settings.getCurrentAssistant()
                 val assistantUuid = assistant.id
                 val model = settings.findModelById(assistant.chatModelId ?: settings.chatModelId)
                 if (model == null) {

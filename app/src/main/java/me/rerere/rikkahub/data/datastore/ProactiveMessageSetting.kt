@@ -25,6 +25,8 @@ data class ProactiveMessageSetting(
     val minIntervalMinutes: Int = 30,
     val maxIntervalMinutes: Int = 90,
     val assistantId: String = "",
+    /** 多个助手各说各的：非空时从这里轮着挑，空则退回 [assistantId] / 当前助手 */
+    val assistantIds: List<String> = emptyList(),
     /** 固定对话；空字符串表示「该助手最近的一个对话」。 */
     val conversationId: String = "",
     val allowForceJump: Boolean = false,
