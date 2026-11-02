@@ -1187,6 +1187,13 @@ private fun DrawerActions(
             onClick = { navController.navigate(Screen.MessageSearch) },
         )
 
+        // 数据看板：功课、体重、三餐、喝水
+        DrawerEntry(
+            icon = HugeIcons.ChartColumn,
+            text = "数据看板",
+            onClick = { navController.navigate(Screen.DataBoard) },
+        )
+
         // 历史记录入口，行尾也留一个搜索入口
         DrawerEntry(
             icon = HugeIcons.TransactionHistory,

@@ -794,6 +794,10 @@ class RouteActivity : ComponentActivity() {
                                 WorkspaceTerminalPage(key.id)
                             }
 
+                            entry<Screen.DataBoard> {
+                                me.rerere.rikkahub.ui.pages.life.DataBoardPage()
+                            }
+
                             entry<Screen.MessageSearch> {
                                 SearchPage()
                             }
@@ -1185,6 +1189,7 @@ sealed interface Screen : NavKey {
     data class WorkspaceTerminal(val id: String) : Screen
 
     @Serializable
+    data object DataBoard : Screen
     data object MessageSearch : Screen
 
     @Serializable
