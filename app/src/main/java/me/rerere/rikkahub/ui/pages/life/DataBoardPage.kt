@@ -35,6 +35,7 @@ private data class DaySummary(
     val date: String,
     val homeworkDone: Int,
     val homeworkTotal: Int,
+    val homeworkItems: List<Pair<String, Boolean>>,
     val weights: List<String>,
     val meals: List<String>,
     val water: Int,
@@ -46,9 +47,15 @@ private fun readDay(f: File): DaySummary? = runCatching {
     val hw = o.optJSONArray("homework")
     var done = 0
     var total = 0
+    val items = mutableListOf<Pair<String, Boolean>>()
     if (hw != null) {
         total = hw.length()
-        for (i in 0 until total) if (hw.getJSONObject(i).optBoolean("done")) done++
+        for (i in 0 until total) {
+            val o2 = hw.getJSONObject(i)
+            val ok = o2.optBoolean("done")
+            if (ok) done++
+            items.add(o2.optString("item") to ok)
+        }
     }
     val weights = mutableListOf<String>()
     o.optJSONArray("weights")?.let { arr ->
@@ -68,6 +75,7 @@ private fun readDay(f: File): DaySummary? = runCatching {
         date = o.optString("date"),
         homeworkDone = done,
         homeworkTotal = total,
+        homeworkItems = items,
         weights = weights,
         meals = meals,
         water = o.optInt("water_ml", 0),
@@ -108,6 +116,9 @@ fun DataBoardPage() {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(d.date, style = MaterialTheme.typography.titleMedium)
                         Text("功课 ${d.homeworkDone}/${d.homeworkTotal}", style = MaterialTheme.typography.bodyMedium)
+                        d.homeworkItems.forEach { (name, ok) ->
+                            Text((if (ok) "✓ " else "○ ") + name, style = MaterialTheme.typography.bodySmall)
+                        }
                         if (d.weights.isNotEmpty()) Text("体重：" + d.weights.joinToString("，"))
                         if (d.water > 0) Text("喝水 ${d.water.toInt()} ml")
                         d.meals.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
