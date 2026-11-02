@@ -95,10 +95,17 @@ fun SettingProactiveMessagePage(
         .takeIf { it.isNotBlank() }
         ?.let { runCatching { Uuid.parse(it) }.getOrNull() }
         ?: settings.getCurrentAssistant().id
-    val assistantLabel = settings.assistants
-        .firstOrNull { it.id.toString() == proactive.assistantId.ifBlank { currentAssistantId } }
-        ?.name
-        ?: stringResource(R.string.proactive_use_current_assistant)
+    val assistantLabel = if (proactive.assistantIds.isNotEmpty()) {
+        val picked = settings.assistants
+            .filter { it.id.toString() in proactive.assistantIds }
+            .map { it.name.ifBlank { stringResource(R.string.proactive_unnamed) } }
+        stringResource(R.string.proactive_multi_selected, picked.size, picked.joinToString("、"))
+    } else {
+        settings.assistants
+            .firstOrNull { it.id.toString() == proactive.assistantId.ifBlank { currentAssistantId } }
+            ?.name
+            ?: stringResource(R.string.proactive_use_current_assistant)
+    }
     var assistantPickerExpanded by remember { mutableStateOf(false) }
     var conversationPickerExpanded by remember { mutableStateOf(false) }
     var conversations by remember(assistantIdForEffective) {

@@ -282,7 +282,11 @@ class ProactiveMessageRunner(
                 val conversation = ProactiveMessageService.resolveTargetConversation(
                     repository = conversationRepository,
                     assistantId = assistantUuid,
-                    configuredConversationId = proactiveSetting.conversationId,
+                    // 多助手模式下不绑定固定对话：各自说自己最近的对话，避免写串
+                    configuredConversationId = if (proactiveSetting.assistantIds.isEmpty()) {
+                        proactiveSetting.conversationId
+                    } else "",
+
                 )
                 if (conversation == null) {
                     Log.d(TAG, "No target conversation for assistant, skipping proactive message")
