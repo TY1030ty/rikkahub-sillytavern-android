@@ -1385,6 +1385,34 @@ private fun buildDailyContext(): String {
     }.getOrDefault("")
 }
 
+
+/** 最近一次读屏记录：让她不用主动调工具也能知道对面在干什么 */
+private fun buildScreenContext(): String {
+    val f = java.io.File("/sdcard/Download/06_脚本/mirrow/chat_records.jsonl")
+    if (!f.isFile) return ""
+    return runCatching {
+        // 只读末尾一段，别把整个文件读进内存
+        val raf = java.io.RandomAccessFile(f, "r")
+        val len = raf.length()
+        val start = if (len > 8192) len - 8192 else 0L
+        raf.seek(start)
+        val buf = ByteArray((len - start).toInt())
+        raf.readFully(buf)
+        raf.close()
+        val tail = String(buf, Charsets.UTF_8)
+        val last = tail.split("\n").lastOrNull { it.trim().startsWith("{") } ?: return@runCatching ""
+        val o = org.json.JSONObject(last)
+        val app = o.optString("page").ifBlank { o.optString("app") }
+        val arr = o.optJSONArray("lines") ?: return@runCatching ""
+        val words = (0 until arr.length())
+            .map { arr.optString(it) }
+            .filter { it.isNotBlank() && it.length > 1 }
+            .take(12)
+            .joinToString(" / ")
+        if (words.isBlank()) "" else "对方此刻在「$app」，屏幕上大致是：$words"
+    }.getOrDefault("")
+}
+
 private fun buildUserContext(
     recentChats: String = "",
 ): String {
@@ -1403,6 +1431,8 @@ private fun buildUserContext(
         "current time: ${nowDateTime.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))}."
     val daily = buildDailyContext()
     if (daily.isNotBlank()) contextMap["today"] = daily
+    val screen = buildScreenContext()
+    if (screen.isNotBlank()) contextMap["currentScreen"] = screen
     if (recentChats.isNotBlank()) {
         contextMap["recentChats"] = recentChats.trim()
     }
