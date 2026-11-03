@@ -1357,6 +1357,34 @@ private const val MAX_MEMORY_ANCHOR_BLOCKS = 2
 private val personaDepthAnchors =
     java.util.concurrent.ConcurrentHashMap<String, Pair<String, String>>()
 
+
+/** 今天该做但没做的事：从 daily.py 的记录里读，让她不用翻工具也知道今天还差什么 */
+private fun buildDailyContext(): String {
+    val f = java.io.File(
+        "/sdcard/Download/06_脚本/mirrow/data/daily/" + java.time.LocalDate.now() + ".json"
+    )
+    if (!f.isFile) return ""
+    return runCatching {
+        val o = org.json.JSONObject(f.readText())
+        val hw = o.optJSONArray("homework") ?: org.json.JSONArray()
+        val pending = mutableListOf<String>()
+        for (i in 0 until hw.length()) {
+            val h = hw.getJSONObject(i)
+            if (!h.optBoolean("done")) pending.add(h.optString("item"))
+        }
+        val sb = StringBuilder()
+        sb.append("今天的功课共 ").append(hw.length()).append(" 项")
+        if (pending.isNotEmpty()) {
+            sb.append("，还没交的是：").append(pending.joinToString("、"))
+        } else if (hw.length() > 0) {
+            sb.append("，已经全部交了")
+        }
+        val water = o.optDouble("water_ml", 0.0).toInt()
+        if (water > 0) sb.append("；今天已喝水 ").append(water).append(" ml")
+        sb.toString()
+    }.getOrDefault("")
+}
+
 private fun buildUserContext(
     recentChats: String = "",
 ): String {
@@ -1373,6 +1401,8 @@ private fun buildUserContext(
     )
     contextMap["currentDate"] = "Current date: ${nowDateTime.toLocalDate()} ($weekdayName), " +
         "current time: ${nowDateTime.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))}."
+    val daily = buildDailyContext()
+    if (daily.isNotBlank()) contextMap["today"] = daily
     if (recentChats.isNotBlank()) {
         contextMap["recentChats"] = recentChats.trim()
     }
