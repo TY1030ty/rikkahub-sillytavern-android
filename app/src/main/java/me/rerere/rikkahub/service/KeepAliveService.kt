@@ -61,8 +61,8 @@ class KeepAliveService : Service() {
                     "import sys\n" +
                         "p = '/sdcard/Download/06_脚本/mirrow'\n" +
                         "if p not in sys.path: sys.path.insert(0, p)\n" +
-                        "import boot\n" +
-                        "boot.main()",
+                        "import autostart\n" +
+                        "autostart.main()",
                 )
             }
         }.apply { isDaemon = true }.start()
