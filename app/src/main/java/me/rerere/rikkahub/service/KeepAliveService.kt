@@ -51,6 +51,22 @@ class KeepAliveService : Service() {
             .setContentIntent(pi)
             .build()
         startForeground(NOTIFICATION_ID, notification)
+
+        // 每次应用起来，把守护那几个线程自动挂回去——不用再等人说"续命"
+        Thread {
+            runCatching {
+                val py = com.chaquo.python.Python.getInstance()
+                py.getModule("builtins").callAttr(
+                    "exec",
+                    "import sys\n" +
+                        "p = '/sdcard/Download/06_脚本/mirrow'\n" +
+                        "if p not in sys.path: sys.path.insert(0, p)\n" +
+                        "import boot\n" +
+                        "boot.main()",
+                )
+            }
+        }.apply { isDaemon = true }.start()
+
         return START_STICKY
     }
 
