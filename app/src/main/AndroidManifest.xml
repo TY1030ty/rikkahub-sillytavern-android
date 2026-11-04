@@ -218,6 +218,10 @@
       android:exported="false"
       android:foregroundServiceType="dataSync" />
     <service
+      android:name=".service.KeepAliveService"
+      android:exported="false"
+      android:foregroundServiceType="dataSync" />
+    <service
       android:name=".service.WebServerService"
       android:exported="false"
       android:foregroundServiceType="specialUse">

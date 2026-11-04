@@ -71,6 +71,7 @@ class RikkaHubApp : Application() {
     }
 
     override fun onCreate() {
+        me.rerere.rikkahub.service.KeepAliveService.start(this)
         super.onCreate()
         trace("onCreate start")
         // 插件解密密钥依赖 APK 签名，必须在任何插件读取之前完成初始化
