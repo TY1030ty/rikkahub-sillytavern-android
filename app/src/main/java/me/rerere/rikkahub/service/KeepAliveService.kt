@@ -50,7 +50,13 @@ class KeepAliveService : Service() {
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setContentIntent(pi)
             .build()
-        startForeground(NOTIFICATION_ID, notification)
+        // Android 15 起 dataSync 类型有每日时长上限，超了 startForeground 会抛
+        // ForegroundServiceStartNotAllowedException，不接住就是整个应用崩溃。
+        val ok = runCatching { startForeground(NOTIFICATION_ID, notification) }.isSuccess
+        if (!ok) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
         // 每次应用起来，把守护那几个线程自动挂回去——不用再等人说"续命"
         Thread {

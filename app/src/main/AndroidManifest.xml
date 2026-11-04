@@ -220,7 +220,11 @@
     <service
       android:name=".service.KeepAliveService"
       android:exported="false"
-      android:foregroundServiceType="dataSync" />
+      android:foregroundServiceType="specialUse">
+      <property
+        android:name="android:PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+        android:value="keep background companion threads alive" />
+    </service>
     <service
       android:name=".service.WebServerService"
       android:exported="false"
