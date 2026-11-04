@@ -1386,30 +1386,55 @@ private fun buildDailyContext(): String {
 }
 
 
-/** 最近一次读屏记录：让她不用主动调工具也能知道对面在干什么 */
+/** 最近一次读屏记录：优先给「刚才在别的 App 里」的那条，不只看当前这一个 */
 private fun buildScreenContext(): String {
     val f = java.io.File("/sdcard/Download/06_脚本/mirrow/chat_records.jsonl")
     if (!f.isFile) return ""
     return runCatching {
-        // 只读末尾一段，别把整个文件读进内存
         val raf = java.io.RandomAccessFile(f, "r")
         val len = raf.length()
-        val start = if (len > 8192) len - 8192 else 0L
-        raf.seek(start)
-        val buf = ByteArray((len - start).toInt())
+        val startAt = if (len > 32768) len - 32768 else 0L
+        raf.seek(startAt)
+        val buf = ByteArray((len - startAt).toInt())
         raf.readFully(buf)
         raf.close()
-        val tail = String(buf, Charsets.UTF_8)
-        val last = tail.split("\n").lastOrNull { it.trim().startsWith("{") } ?: return@runCatching ""
-        val o = org.json.JSONObject(last)
-        val app = o.optString("page").ifBlank { o.optString("app") }
-        val arr = o.optJSONArray("lines") ?: return@runCatching ""
-        val words = (0 until arr.length())
-            .map { arr.optString(it) }
-            .filter { it.isNotBlank() && it.length > 1 }
-            .take(12)
-            .joinToString(" / ")
-        if (words.isBlank()) "" else "对方此刻在「$app」，屏幕上大致是：$words"
+        val lines = String(buf, Charsets.UTF_8)
+            .split("\n")
+            .filter { it.trim().startsWith("{") }
+            .takeLast(40)
+
+        fun wordsOf(o: org.json.JSONObject): String {
+            val arr = o.optJSONArray("lines") ?: return ""
+            return (0 until arr.length())
+                .map { arr.optString(it) }
+                .filter { it.isNotBlank() && it.length > 1 }
+                .take(12)
+                .joinToString(" / ")
+        }
+
+        val selfPkg = "me.rerere.rikkahub.huadeng.selfbuild"
+        var otherText = ""
+        var otherApp = ""
+        var nowText = ""
+        var nowApp = ""
+        for (line in lines) {
+            val o = runCatching { org.json.JSONObject(line) }.getOrNull() ?: continue
+            val app = o.optString("app")
+            val page = o.optString("page").ifBlank { app }
+            val w = wordsOf(o)
+            if (w.isBlank()) continue
+            if (app != selfPkg) {
+                otherText = w
+                otherApp = page
+            } else {
+                nowText = w
+                nowApp = page
+            }
+        }
+        val sb = StringBuilder()
+        if (otherText.isNotBlank()) sb.append("刚才对方在「").append(otherApp).append("」，屏幕上大致是：").append(otherText).append("。")
+        if (nowText.isNotBlank()) sb.append("此刻在影里聊天。")
+        sb.toString()
     }.getOrDefault("")
 }
 
