@@ -506,7 +506,6 @@ class VoiceCallService : Service(), KoinComponent {
                 }
 
                 if (currentText.length > ttsSentLength) {
-                    spokenMessageIds.add(msgKey)   // [自建版补丁] 登记：这条念过了
                     val newText = currentText.substring(ttsSentLength)
                     extractCompleteSentences(newText).forEach { sentence ->
                         if (sentence.isNotBlank()) {
@@ -515,6 +514,14 @@ class VoiceCallService : Service(), KoinComponent {
                         }
                     }
                     ttsSentLength = currentText.length - getPendingRemainder(newText).length
+                    // 只有「生成已结束且没有剩余没念的部分」才算这条念完。
+                    // 原来是一收到第一个片段就登记成"念过了"，后面追加的内容全被跳过，
+                    // 长回复就变成从第二三句开始没声音。
+                    if (_uiState.value.status != VoiceCallStatus.Processing &&
+                        getPendingRemainder(newText).isEmpty()
+                    ) {
+                        spokenMessageIds.add(msgKey)
+                    }
                 }
 
                 if (_uiState.value.status == VoiceCallStatus.Processing && currentText.isNotBlank()) {
