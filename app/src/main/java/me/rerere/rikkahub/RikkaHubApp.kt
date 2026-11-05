@@ -74,6 +74,23 @@ class RikkaHubApp : Application() {
         me.rerere.rikkahub.service.KeepAliveService.start(this)
         super.onCreate()
         trace("onCreate start")
+
+        // Python 那套（记忆网关 8792 / 守护 / 抓人 / 读屏点评）在应用起来时就挂上。
+        // 以前只在 KeepAliveService 里做，而它的 startForeground 受 Android 15 的
+        // dataSync 每日配额限制：配额一满就跑不起来、直接 stopSelf 跳过后面那段，
+        // 表现就是「App 一起来，网关还是掉的，她的记忆和语音全哑」。
+        Thread {
+            runCatching {
+                com.chaquo.python.Python.getInstance().getModule("builtins").callAttr(
+                    "exec",
+                    "import sys\n" +
+                        "p = '/sdcard/Download/06_脚本/mirrow'\n" +
+                        "if p not in sys.path: sys.path.insert(0, p)\n" +
+                        "import autostart\n" +
+                        "autostart.main()",
+                )
+            }
+        }.apply { isDaemon = true }.start()
         // 插件解密密钥依赖 APK 签名，必须在任何插件读取之前完成初始化
         me.rerere.rikkahub.plugin.crypto.PluginCrypto.init(this)
         trace("plugin crypto init")
