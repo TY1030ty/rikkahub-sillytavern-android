@@ -209,6 +209,24 @@ class ProactiveMessageRunner(
                     return false
                 }
 
+                // 夜间静默：23:30 到次日 08:00 不主动开口，免得半夜连着发一宿
+                val nowCal = java.util.Calendar.getInstance()
+                val minutesNow = nowCal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + nowCal.get(java.util.Calendar.MINUTE)
+                val quietStart = 23 * 60 + 30
+                val quietEnd = 8 * 60
+                val inQuietHours = minutesNow >= quietStart || minutesNow < quietEnd
+                if (inQuietHours) {
+                    ProactiveMessageLog.log(
+                        appContext, ProactiveMessageLog.Outcome.SKIPPED, "夜间静默",
+                        "现在 ${nowCal.get(java.util.Calendar.HOUR_OF_DAY)}:" +
+                            "%02d".format(nowCal.get(java.util.Calendar.MINUTE)) +
+                            "，处于 23:30–08:00 静默时段，本次不主动开口。",
+                    )
+                    // 静默不等于停摆：照常排下一次，天亮了继续
+                    ProactiveMessageService.scheduleNext(appContext, proactiveSetting)
+                    return false
+                }
+
                 val prefs = appContext.getSharedPreferences(ProactiveMessageService.PREFS_NAME, Context.MODE_PRIVATE)
 
                 // 去重判断：防止 AlarmManager 和 WorkManager 在同一窗口内重复触发。
