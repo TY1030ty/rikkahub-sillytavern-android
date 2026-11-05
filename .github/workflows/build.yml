@@ -1,5 +1,8 @@
 name: Build APK
 
+permissions:
+  contents: write   # 发布 release 要用
+
 on:
   push:
     branches: [ master, mingli, huadeng ]
@@ -81,3 +84,14 @@ jobs:
         with:
           name: rikkahub-plus-fresh
           path: app/build/outputs/apk/release/*.apk
+      # 把 apk 挂到公开 Release：手机浏览器直接点链接就能下，
+      # 不像 artifact 那样必须先登录 GitHub（她那边 artifact 一直下失败就是这个）。
+      - name: Publish release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: 影 构建 ${{ github.run_number }}
+          body: |
+            自动构建：崩溃修复（mmap 关闭 / 崩溃后续接原对话）、记忆网关启动位置修复。
+          files: app/build/outputs/apk/release/*.apk
