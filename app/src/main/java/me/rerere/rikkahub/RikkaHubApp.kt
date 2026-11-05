@@ -79,26 +79,33 @@ class RikkaHubApp : Application() {
         // 以前只在 KeepAliveService 里做，而它的 startForeground 受 Android 15 的
         // dataSync 每日配额限制：配额一满就跑不起来、直接 stopSelf 跳过后面那段，
         // 表现就是「App 一起来，网关还是掉的，她的记忆和语音全哑」。
-        Thread {
-            runCatching {
-                // 关键：Application.onCreate 时 Python 可能还没起来，
-                // 直接 getInstance() 会抛异常，被 runCatching 吞掉 —— 表现就是
-                // 「网关根本没被拉起」。所以先确保 Python 已经 start。
+        // Chaquopy 要求 Python.start() 在主线程调用。之前这段整个写在子线程里，
+        // 抛出的异常又被 runCatching 吞掉 —— 表现就是「开机自启从来没生效过」。
+        // 现在改成：主线程 post 上去拉 Python，拉起来之后再去后台线程跑 autostart。
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            val pythonReady = runCatching {
                 if (!com.chaquo.python.Python.isStarted()) {
                     com.chaquo.python.Python.start(
                         com.chaquo.python.android.AndroidPlatform(applicationContext)
                     )
                 }
-                com.chaquo.python.Python.getInstance().getModule("builtins").callAttr(
-                    "exec",
-                    "import sys\n" +
-                        "p = '/sdcard/Download/06_脚本/mirrow'\n" +
-                        "if p not in sys.path: sys.path.insert(0, p)\n" +
-                        "import autostart\n" +
-                        "autostart.main()",
-                )
-            }.onFailure { Log.w("RikkaHubApp", "python bootstrap failed", it) }
-        }.apply { isDaemon = true }.start()
+                true
+            }.onFailure { Log.e("RikkaHubApp", "Python.start failed", it) }.getOrDefault(false)
+            if (pythonReady) {
+                Thread {
+                    runCatching {
+                        com.chaquo.python.Python.getInstance().getModule("builtins").callAttr(
+                            "exec",
+                            "import sys\n" +
+                                "p = '/sdcard/Download/06_脚本/mirrow'\n" +
+                                "if p not in sys.path: sys.path.insert(0, p)\n" +
+                                "import autostart\n" +
+                                "autostart.main()",
+                        )
+                    }.onFailure { Log.e("RikkaHubApp", "python bootstrap failed", it) }
+                }.apply { isDaemon = true }.start()
+            }
+        }
         // 插件解密密钥依赖 APK 签名，必须在任何插件读取之前完成初始化
         me.rerere.rikkahub.plugin.crypto.PluginCrypto.init(this)
         trace("plugin crypto init")
