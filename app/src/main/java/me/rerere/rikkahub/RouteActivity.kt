@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -168,6 +169,7 @@ import me.rerere.rikkahub.ui.pages.webview.WebViewPage
 import me.rerere.rikkahub.ui.theme.LocalSettingsBackdropActive
 import me.rerere.rikkahub.ui.theme.RikkahubTheme
 import me.rerere.rikkahub.utils.CrashHandler
+import me.rerere.rikkahub.utils.SessionGuard
 import me.rerere.rikkahub.utils.openUsageAccessSettings
 import me.rerere.workspace.WorkspaceStorageArea
 import okhttp3.OkHttpClient
@@ -227,6 +229,8 @@ class RouteActivity : ComponentActivity() {
         ) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
+        // 前台标记：崩掉时这里写的 open 不会被改成 closed，下次启动据此续接对话
+        SessionGuard.markForeground(this)
         if (savedInstanceState == null) {
             handleIntent(intent)
         }
@@ -254,6 +258,16 @@ class RouteActivity : ComponentActivity() {
                 AppRoutes()
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        SessionGuard.markForeground(this)
+    }
+
+    override fun onPause() {
+        SessionGuard.markBackground(this)
+        super.onPause()
     }
 
     private fun disableNavigationBarContrast() {
@@ -377,11 +391,15 @@ class RouteActivity : ComponentActivity() {
         }
         val needsOnboarding = !OnboardingState.isCompleted(this) && !hasUsableModel
 
+        // 上次没干净结束（原生崩溃/被系统杀掉）就续接那个对话：
+        // 她发的消息是发出即落库的，回去最多丢「没回完的那半句」，不会丢掉整个聊天框
+        val sessionGuard = remember { SessionGuard.read(this@RouteActivity) }
         val startScreen: Screen = if (needsOnboarding) {
             Screen.Onboarding
         } else {
             Screen.Chat(
-                id = if (readBooleanPreference("create_new_conversation_on_start", true)) {
+                id = sessionGuard.conversationId?.takeIf { sessionGuard.dirty }
+                    ?: if (readBooleanPreference("create_new_conversation_on_start", true)) {
                     Uuid.random().toString()
                 } else {
                     readStringPreference(
@@ -393,6 +411,22 @@ class RouteActivity : ComponentActivity() {
         }
 
         val backStack = rememberNavBackStack(startScreen)
+
+        // 记住当前停在哪个对话，供下次崩溃后定位
+        LaunchedEffect(backStack.toList()) {
+            (backStack.lastOrNull() as? Screen.Chat)?.let { chat ->
+                SessionGuard.markForeground(this@RouteActivity, chat.id)
+            }
+        }
+        LaunchedEffect(Unit) {
+            if (sessionGuard.dirty && sessionGuard.conversationId != null) {
+                Toast.makeText(
+                    this@RouteActivity,
+                    "上次回话时掉了一次，已回到那个对话；没回完的那句可以重发",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
         SideEffect {
             navStack = backStack
             while (pendingIntents.isNotEmpty()) {
