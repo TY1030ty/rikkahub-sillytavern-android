@@ -81,6 +81,14 @@ class RikkaHubApp : Application() {
         // 表现就是「App 一起来，网关还是掉的，她的记忆和语音全哑」。
         Thread {
             runCatching {
+                // 关键：Application.onCreate 时 Python 可能还没起来，
+                // 直接 getInstance() 会抛异常，被 runCatching 吞掉 —— 表现就是
+                // 「网关根本没被拉起」。所以先确保 Python 已经 start。
+                if (!com.chaquo.python.Python.isStarted()) {
+                    com.chaquo.python.Python.start(
+                        com.chaquo.python.android.AndroidPlatform(applicationContext)
+                    )
+                }
                 com.chaquo.python.Python.getInstance().getModule("builtins").callAttr(
                     "exec",
                     "import sys\n" +
@@ -89,7 +97,7 @@ class RikkaHubApp : Application() {
                         "import autostart\n" +
                         "autostart.main()",
                 )
-            }
+            }.onFailure { Log.w("RikkaHubApp", "python bootstrap failed", it) }
         }.apply { isDaemon = true }.start()
         // 插件解密密钥依赖 APK 签名，必须在任何插件读取之前完成初始化
         me.rerere.rikkahub.plugin.crypto.PluginCrypto.init(this)
