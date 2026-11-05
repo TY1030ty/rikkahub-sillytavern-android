@@ -61,6 +61,11 @@ class KeepAliveService : Service() {
         // 每次应用起来，把守护那几个线程自动挂回去——不用再等人说"续命"
         Thread {
             runCatching {
+                if (!com.chaquo.python.Python.isStarted()) {
+                    com.chaquo.python.Python.start(
+                        com.chaquo.python.android.AndroidPlatform(applicationContext)
+                    )
+                }
                 val py = com.chaquo.python.Python.getInstance()
                 py.getModule("builtins").callAttr(
                     "exec",
