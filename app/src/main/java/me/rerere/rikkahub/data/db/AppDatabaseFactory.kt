@@ -21,6 +21,9 @@ internal object AppDatabaseFactory {
             .addMigrations(*AppDatabaseMigrations.HANDWRITTEN)
             .addCallback(object : RoomDatabase.Callback() {
                 override fun onOpen(db: SupportSQLiteDatabase) {
+                    // 关掉 sqlite 的文件内存映射：映射页在库文件被别的连接动过之后会变成
+                    // 非法地址，往上写就 SIGBUS（本机保存消息时就崩在这儿，表现为「回完话弹回桌面」）
+                    runCatching { db.execSQL("PRAGMA mmap_size=0") }
                     val dictDir = SimpleDictManager.extractDict(context)
                     val cursor = db.query("SELECT jieba_dict(?)", arrayOf(dictDir.absolutePath))
                     cursor.use {
