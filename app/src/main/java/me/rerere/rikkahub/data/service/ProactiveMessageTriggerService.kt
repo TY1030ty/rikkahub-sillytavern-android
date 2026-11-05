@@ -227,6 +227,17 @@ class ProactiveMessageRunner(
                     return false
                 }
 
+                // 熄屏基本等于人不在：这时候发消息只会吵醒人
+                val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                if (powerManager != null && !powerManager.isInteractive) {
+                    ProactiveMessageLog.log(
+                        appContext, ProactiveMessageLog.Outcome.SKIPPED, "熄屏",
+                        "屏幕是灭的，判定为不在，本次不主动开口。",
+                    )
+                    ProactiveMessageService.scheduleNext(appContext, proactiveSetting)
+                    return false
+                }
+
                 val prefs = appContext.getSharedPreferences(ProactiveMessageService.PREFS_NAME, Context.MODE_PRIVATE)
 
                 // 去重判断：防止 AlarmManager 和 WorkManager 在同一窗口内重复触发。

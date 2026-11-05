@@ -1415,25 +1415,44 @@ private fun buildScreenContext(): String {
         val selfPkg = "me.rerere.rikkahub.huadeng.selfbuild"
         var otherText = ""
         var otherApp = ""
+        var otherTs = 0.0
         var nowText = ""
         var nowApp = ""
+        var nowTs = 0.0
         for (line in lines) {
             val o = runCatching { org.json.JSONObject(line) }.getOrNull() ?: continue
             val app = o.optString("app")
             val page = o.optString("page").ifBlank { app }
+            val ts = o.optDouble("ts", 0.0)
             val w = wordsOf(o)
             if (w.isBlank()) continue
             if (app != selfPkg) {
                 otherText = w
                 otherApp = page
+                otherTs = ts
             } else {
                 nowText = w
                 nowApp = page
+                nowTs = ts
             }
         }
+        // 只有「刚刚」的记录才算「此刻」，旧记录不能让她以为人还醒着
+        val nowSec = System.currentTimeMillis() / 1000.0
         val sb = StringBuilder()
-        if (otherText.isNotBlank()) sb.append("刚才对方在「").append(otherApp).append("」，屏幕上大致是：").append(otherText).append("。")
-        if (nowText.isNotBlank()) sb.append("此刻在影里聊天。")
+        if (otherText.isNotBlank() && otherTs > 0) {
+            val age = (nowSec - otherTs) / 60.0
+            val whenText = when {
+                age <= 10 -> "刚刚"
+                age <= 60 -> "${age.toInt()} 分钟前"
+                age <= 600 -> "${(age / 60).toInt()} 小时前"
+                else -> "较早之前"
+            }
+            sb.append(whenText).append("对方在「").append(otherApp)
+                .append("」，屏幕上大致是：").append(otherText).append("。")
+        }
+        if (nowText.isNotBlank() && nowTs > 0 && (nowSec - nowTs) <= 300) {
+            sb.append("此刻在影里聊天。")
+        }
         sb.toString()
     }.getOrDefault("")
 }
