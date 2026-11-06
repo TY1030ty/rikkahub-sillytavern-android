@@ -1403,12 +1403,22 @@ private fun buildScreenContext(): String {
             .filter { it.trim().startsWith("{") }
             .takeLast(40)
 
+        // 屏幕上大半是「选集 / 分享 / 热度 / 展开」这类界面噪声，
+        // 真正的内容反而被 12 行的上限截掉了 —— 她读到的就是碎片。
+        // 这里先把纯 UI 词滤掉，再放宽到 30 行。
+        val noiseWords = listOf(
+            "选集", "分享", "收藏", "展开", "全屏观看", "倍速", "发弹幕", "热评：",
+            "暂无评分", "暂未开分", "累计收藏量", "热度值", "下滑退出", "作者声明",
+            "基本信息", "微短剧备字", "举 报", "举报", "下载",
+        )
         fun wordsOf(o: org.json.JSONObject): String {
             val arr = o.optJSONArray("lines") ?: return ""
             return (0 until arr.length())
-                .map { arr.optString(it) }
-                .filter { it.isNotBlank() && it.length > 1 }
-                .take(12)
+                .map { arr.optString(it).trim() }
+                .filter { it.length > 1 }
+                .filter { s -> noiseWords.none { s.contains(it) } }
+                .distinct()
+                .take(30)
                 .joinToString(" / ")
         }
 
