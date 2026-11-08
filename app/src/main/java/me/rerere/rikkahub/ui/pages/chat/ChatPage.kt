@@ -58,6 +58,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Size
@@ -119,6 +120,7 @@ import me.rerere.rikkahub.ui.components.ai.ChatAttachmentPickerActions
 import me.rerere.rikkahub.ui.components.ai.ChatInput
 import me.rerere.rikkahub.ui.components.message.ChatMessageActionsSheet
 import me.rerere.rikkahub.ui.components.message.ChatMessageCopySheet
+import me.rerere.rikkahub.ui.components.ui.ErrorCardsDisplay
 import me.rerere.rikkahub.ui.components.ui.ImagePreviewDialog
 import me.rerere.rikkahub.ui.components.richtext.buildMarkdownPreviewHtml
 import me.rerere.rikkahub.ui.components.richtext.findFencedHtmlDocument
@@ -404,6 +406,7 @@ private fun resolveFrontendCardMode(setting: Settings, conversation: Conversatio
     val assistant = setting.getAssistantOf(conversation)
     return when (assistant.frontendCardMode) {
         me.rerere.rikkahub.data.model.FrontendCardMode.ALWAYS -> true
+        me.rerere.rikkahub.data.model.FrontendCardMode.TAVERN -> true
         me.rerere.rikkahub.data.model.FrontendCardMode.NEVER -> false
         me.rerere.rikkahub.data.model.FrontendCardMode.AUTO ->
             assistant.frontendCardPreferred ||
@@ -465,20 +468,6 @@ private fun ChatPageContent(
 
     TTSAutoPlay(vm = vm, setting = setting, conversation = conversation)
 
-    // 打开这个对话就把未读标记清掉（会话列表那个小点）
-    LaunchedEffect(conversation.id) {
-        context.getSharedPreferences("conversation_unread", android.content.Context.MODE_PRIVATE)
-            .edit()
-            .putLong(conversation.id.toString(), System.currentTimeMillis())
-            .apply()
-    }
-
-    // 角色专属音色：切到这个角色时，把全局 TTS 提供商换成他/她自己的嗓子
-    val roleTts = LocalTTSState.current
-    LaunchedEffect(assistant.ttsVoice, setting.selectedTTSProviderId, setting.ttsProviders) {
-        roleTts.updateProvider(setting.getSelectedTTSProvider()?.withVoice(assistant.ttsVoice))
-    }
-
     Surface(
         color = setting.displaySetting.chatBackgroundColor?.toComposeColor()
             ?: MaterialTheme.colorScheme.background,
@@ -499,6 +488,9 @@ private fun ChatPageContent(
     // 前端插件只在前端 WebView 模式生效：脚本随启用状态变化重新下发
     val pluginManager: me.rerere.rikkahub.plugin.manager.PluginManager = koinInject()
     val pluginList by pluginManager.plugins.collectAsStateWithLifecycle()
+    val pluginMessageActions = remember(pluginList) {
+        pluginList.filter { it.isEnabled }.flatMap { it.manifest.messageActions }
+    }
     var frontendScriptsJson by remember { mutableStateOf("[]") }
     LaunchedEffect(frontendCardPreferredNow, pluginList) {
         frontendScriptsJson = if (frontendCardPreferredNow) pluginManager.buildFrontendScriptsJson() else "[]"
@@ -874,6 +866,10 @@ private fun ChatPageContent(
             val chatAssistant = setting.getAssistantOf(conversation)
             // 只有该助手被标记为前端卡会话时才走 WebView，普通会话一律原生
             val frontendCardMode = frontendCardPreferredNow
+            // 原生酒馆模式：内核换成内置的 SillyTavern 前端，界面外壳仍是原生的
+            val tavernMode = remember(chatAssistant.id, chatAssistant.frontendCardMode) {
+                chatAssistant.frontendCardMode == me.rerere.rikkahub.data.model.FrontendCardMode.TAVERN
+            }
             webTranslateMessage?.let { target ->
                 me.rerere.rikkahub.ui.components.message.LanguageSelectionDialog(
                     onLanguageSelected = { locale ->
@@ -983,7 +979,15 @@ private fun ChatPageContent(
                 }
             }
 
-            if (frontendCardMode) {
+            if (tavernMode) {
+                TavernSurface(
+                    assistantName = chatAssistant.name,
+                    appSettings = setting,
+                    model = currentChatModel,
+                    conversationId = conversation.id,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else if (frontendCardMode) {
                 // 前端卡专属模式：整块消息区交给单个 WebView，标题栏与输入栏保持原生
                 val uriHandler = LocalUriHandler.current
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -1634,6 +1638,16 @@ private fun ChatPageContent(
                     // 铺满全屏：原生标题栏与输入栏由 Scaffold 覆盖在其上
                     modifier = Modifier.fillMaxSize(),
                 )
+                // 前端卡模式没有原生消息列表，错误卡片得自己浮在 WebView 上，
+                // 否则中转站报错、压缩失败这类错误在这里完全不可见
+                ErrorCardsDisplay(
+                    errors = errors,
+                    onDismissError = onDismissError,
+                    onClearAllErrors = onClearAllErrors,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .zIndex(5f),
+                )
                 if (previewMode) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
@@ -1735,6 +1749,20 @@ private fun ChatPageContent(
                 onConversationSystemPromptChange = { newPrompt ->
                     vm.updateConversation(conversation.copy(customSystemPrompt = newPrompt))
                     vm.saveConversationAsync()
+                },
+                pluginActions = pluginMessageActions,
+                onPluginAction = { pluginAction ->
+                    when (pluginAction.action) {
+                        "slash" -> {
+                            inputState.setMessageText(pluginAction.payload)
+                            vm.handleMessageSend(inputState.getContents())
+                            inputState.clearInput()
+                        }
+                        "regenerate" -> conversation.currentMessages.lastOrNull()?.let {
+                            vm.regenerateAtMessage(it)
+                        }
+                        else -> toaster.show("插件动作: ${pluginAction.label}", type = ToastType.Info)
+                    }
                 },
 
             )
@@ -2088,3 +2116,17 @@ private fun parseVariablesJson(json: String): Map<String, Map<String, kotlinx.se
         (value as? kotlinx.serialization.json.JsonObject)?.toMap().orEmpty()
     }
 }.getOrDefault(emptyMap())
+
+    // 打开这个对话就把未读标记清掉（会话列表那个小点）
+    LaunchedEffect(conversation.id) {
+        context.getSharedPreferences("conversation_unread", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putLong(conversation.id.toString(), System.currentTimeMillis())
+            .apply()
+    }
+
+    // 角色专属音色：切到这个角色时，把全局 TTS 提供商换成他/她自己的嗓子
+    val roleTts = LocalTTSState.current
+    LaunchedEffect(assistant.ttsVoice, setting.selectedTTSProviderId, setting.ttsProviders) {
+        roleTts.updateProvider(setting.getSelectedTTSProvider()?.withVoice(assistant.ttsVoice))
+    }

@@ -131,6 +131,7 @@ import me.rerere.rikkahub.ui.pages.mediacreation.MediaCreationSessionsPage
 import me.rerere.rikkahub.ui.pages.search.SearchPage
 import me.rerere.rikkahub.ui.pages.setting.SettingAboutPage
 import me.rerere.rikkahub.ui.pages.setting.SettingCrashLogPage
+import me.rerere.rikkahub.ui.pages.setting.SettingBrowserPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesThemePage
 import me.rerere.rikkahub.ui.pages.setting.SettingPreferencesNotificationPage
@@ -190,6 +191,9 @@ import me.rerere.rikkahub.utils.l10n
 private const val TAG = "RouteActivity"
 private const val ACTION_TRANSLATE = "me.rerere.rikkahub.action.TRANSLATE"
 private const val ACTION_MEDIA_CREATION = "me.rerere.rikkahub.action.MEDIA_CREATION"
+internal const val ACTION_MINI_APP = "me.rerere.rikkahub.action.MINI_APP"
+internal const val EXTRA_MINI_APP_PLUGIN_ID = "miniAppPluginId"
+internal const val EXTRA_MINI_APP_ID = "miniAppId"
 
 class RouteActivity : ComponentActivity() {
     private val okHttpClient by inject<OkHttpClient>()
@@ -229,8 +233,6 @@ class RouteActivity : ComponentActivity() {
         ) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
-        // 前台标记：崩掉时这里写的 open 不会被改成 closed，下次启动据此续接对话
-        SessionGuard.markForeground(this)
         if (savedInstanceState == null) {
             handleIntent(intent)
         }
@@ -260,16 +262,6 @@ class RouteActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        SessionGuard.markForeground(this)
-    }
-
-    override fun onPause() {
-        SessionGuard.markBackground(this)
-        super.onPause()
-    }
-
     private fun disableNavigationBarContrast() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
@@ -294,6 +286,10 @@ class RouteActivity : ComponentActivity() {
                 openNewMediaCreation(backStack)
                 null
             }
+            ACTION_MINI_APP -> Screen.PluginMiniApp(
+                pluginId = intent.getStringExtra(EXTRA_MINI_APP_PLUGIN_ID).orEmpty(),
+                miniAppId = intent.getStringExtra(EXTRA_MINI_APP_ID).orEmpty(),
+            )
             Intent.ACTION_SEND -> Screen.ShareHandler(
                 text = intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty(),
                 streamUri = intent.getStringExtra(Intent.EXTRA_STREAM),
@@ -391,9 +387,6 @@ class RouteActivity : ComponentActivity() {
         }
         val needsOnboarding = !OnboardingState.isCompleted(this) && !hasUsableModel
 
-        // 上次没干净结束（原生崩溃/被系统杀掉）就续接那个对话：
-        // 她发的消息是发出即落库的，回去最多丢「没回完的那半句」，不会丢掉整个聊天框
-        val sessionGuard = remember { SessionGuard.read(this@RouteActivity) }
         val startScreen: Screen = if (needsOnboarding) {
             Screen.Onboarding
         } else {
@@ -740,6 +733,10 @@ class RouteActivity : ComponentActivity() {
                                 SettingSecurityPage()
                             }
 
+                            entry<Screen.SettingBrowser> {
+                                SettingBrowserPage()
+                            }
+
                             entry<Screen.SettingWeixinBot> {
                                 SettingWeixinBotPage()
                             }
@@ -801,6 +798,14 @@ class RouteActivity : ComponentActivity() {
                                 )
                             }
 
+                            entry<Screen.PluginMiniApp> { key ->
+                                me.rerere.rikkahub.plugin.ui.PluginMiniAppPage(
+                                    pluginId = key.pluginId,
+                                    miniAppId = key.miniAppId,
+                                    onNavigateBack = { backStack.removeLastOrNull() },
+                                )
+                            }
+
                             entry<Screen.PluginDetail> { key ->
                                 PluginDetailPage(
                                     pluginId = key.pluginId,
@@ -826,10 +831,6 @@ class RouteActivity : ComponentActivity() {
 
                             entry<Screen.WorkspaceTerminal> { key ->
                                 WorkspaceTerminalPage(key.id)
-                            }
-
-                            entry<Screen.DataBoard> {
-                                me.rerere.rikkahub.ui.pages.life.DataBoardPage()
                             }
 
                             entry<Screen.MessageSearch> {
@@ -941,6 +942,18 @@ class RouteActivity : ComponentActivity() {
                 }
             }
         }
+        // 前台标记：崩掉时这里写的 open 不会被改成 closed，下次启动据此续接对话
+        SessionGuard.markForeground(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        SessionGuard.markForeground(this)
+    }
+
+    override fun onPause() {
+        SessionGuard.markBackground(this)
+        super.onPause()
     }
 }
 
@@ -993,7 +1006,7 @@ private fun Screen.isSettingScreen(): Boolean = when (this) {
     Screen.SettingMedia, Screen.SettingMcp, Screen.SettingDonate,
     Screen.SettingFiles, Screen.SettingWeb, Screen.SettingTavern,
     Screen.SettingTavernRegex, Screen.SettingHuaDeng, Screen.SettingHuaDengCompat,
-    Screen.SettingJev, Screen.SettingSecurity,
+    Screen.SettingJev, Screen.SettingSecurity, Screen.SettingBrowser,
     Screen.SettingWeixinBot, Screen.SettingQqBot, Screen.SettingProactiveMessage,
     Screen.Persona, Screen.AuthorsNote, Screen.Extensions, Screen.QuickMessages,
     Screen.Prompts, Screen.Skills, Screen.Plugins, Screen.Workspaces,
@@ -1172,6 +1185,9 @@ sealed interface Screen : NavKey {
     data object SettingSecurity : Screen
 
     @Serializable
+    data object SettingBrowser : Screen
+
+    @Serializable
     data object SettingWeixinBot : Screen
 
     @Serializable
@@ -1211,6 +1227,9 @@ sealed interface Screen : NavKey {
     data class PluginDetail(val pluginId: String) : Screen
 
     @Serializable
+    data class PluginMiniApp(val pluginId: String, val miniAppId: String) : Screen
+
+    @Serializable
     data class WorkspaceFileEditor(val id: String, val area: String, val path: String) : Screen
 
     @Serializable
@@ -1223,7 +1242,6 @@ sealed interface Screen : NavKey {
     data class WorkspaceTerminal(val id: String) : Screen
 
     @Serializable
-    data object DataBoard : Screen
     data object MessageSearch : Screen
 
     @Serializable
@@ -1259,6 +1277,14 @@ sealed interface Screen : NavKey {
     @Serializable
     data class VoiceCall(val conversationId: String) : Screen
 
+                            entry<Screen.DataBoard> {
+                                me.rerere.rikkahub.ui.pages.life.DataBoardPage()
+                            }
+
+        // 上次没干净结束（原生崩溃/被系统杀掉）就续接那个对话：
+        // 她发的消息是发出即落库的，回去最多丢「没回完的那半句」，不会丢掉整个聊天框
+        val sessionGuard = remember { SessionGuard.read(this@RouteActivity) }
     @Serializable
+    data object DataBoard : Screen
     data class VideoCall(val conversationId: String) : Screen
 }

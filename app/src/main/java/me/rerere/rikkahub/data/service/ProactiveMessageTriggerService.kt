@@ -209,35 +209,6 @@ class ProactiveMessageRunner(
                     return false
                 }
 
-                // 夜间静默：23:30 到次日 08:00 不主动开口，免得半夜连着发一宿
-                val nowCal = java.util.Calendar.getInstance()
-                val minutesNow = nowCal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + nowCal.get(java.util.Calendar.MINUTE)
-                val quietStart = 23 * 60 + 30
-                val quietEnd = 8 * 60
-                val inQuietHours = minutesNow >= quietStart || minutesNow < quietEnd
-                if (inQuietHours) {
-                    ProactiveMessageLog.log(
-                        appContext, ProactiveMessageLog.Outcome.SKIPPED, "夜间静默",
-                        "现在 ${nowCal.get(java.util.Calendar.HOUR_OF_DAY)}:" +
-                            "%02d".format(nowCal.get(java.util.Calendar.MINUTE)) +
-                            "，处于 23:30–08:00 静默时段，本次不主动开口。",
-                    )
-                    // 静默不等于停摆：照常排下一次，天亮了继续
-                    ProactiveMessageService.scheduleNext(appContext, proactiveSetting)
-                    return false
-                }
-
-                // 熄屏基本等于人不在：这时候发消息只会吵醒人
-                val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
-                if (powerManager != null && !powerManager.isInteractive) {
-                    ProactiveMessageLog.log(
-                        appContext, ProactiveMessageLog.Outcome.SKIPPED, "熄屏",
-                        "屏幕是灭的，判定为不在，本次不主动开口。",
-                    )
-                    ProactiveMessageService.scheduleNext(appContext, proactiveSetting)
-                    return false
-                }
-
                 val prefs = appContext.getSharedPreferences(ProactiveMessageService.PREFS_NAME, Context.MODE_PRIVATE)
 
                 // 去重判断：防止 AlarmManager 和 WorkManager 在同一窗口内重复触发。
@@ -288,13 +259,15 @@ class ProactiveMessageRunner(
                 }
                 val assistant = candidates.randomOrNull() ?: settings.getCurrentAssistant()
                 val assistantUuid = assistant.id
-                val model = settings.findModelById(assistant.chatModelId ?: settings.chatModelId)
+                val model = settings.findModelById(settings.proactiveMessageModelId)
+                    ?: settings.findModelById(assistant.chatModelId ?: settings.chatModelId)
                 if (model == null) {
                     Log.e(TAG, "No model found for proactive message")
                     ProactiveMessageLog.log(
                         appContext, ProactiveMessageLog.Outcome.FAILED, "模型检查",
                         buildString {
                             appendLine("助手：${assistant.name.ifBlank { assistantUuid.toString() }}")
+                            appendLine("主动消息模型 ID：" + (settings.proactiveMessageModelId ?: "（未设置）"))
                             appendLine("助手配置的模型 ID：" + (assistant.chatModelId ?: "（未设置）"))
                             appendLine("全局默认模型 ID：" + settings.chatModelId)
                             append("原因：找不到对应的模型定义。去助手设置里选一个模型，" +
@@ -796,6 +769,9 @@ class ProactiveMessageRunner(
             updateAt = java.time.Instant.now(),
         )
         conversationRepository.updateConversation(updated)
+        // 对话可能正开着：session 是内存里的那份，只写库页面不会刷新，
+        // 于是「执行日志显示已发送」但聊天窗口里什么都没有
+        chatService.publishConversationUpdate(updated)
         Log.d(TAG, "Saved proactive message to $conversationId (${nodes.size} nodes)")
         return true
     }
@@ -1092,3 +1068,32 @@ class ProactiveMessageRunner(
     }
 
 }
+
+                // 夜间静默：23:30 到次日 08:00 不主动开口，免得半夜连着发一宿
+                val nowCal = java.util.Calendar.getInstance()
+                val minutesNow = nowCal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + nowCal.get(java.util.Calendar.MINUTE)
+                val quietStart = 23 * 60 + 30
+                val quietEnd = 8 * 60
+                val inQuietHours = minutesNow >= quietStart || minutesNow < quietEnd
+                if (inQuietHours) {
+                    ProactiveMessageLog.log(
+                        appContext, ProactiveMessageLog.Outcome.SKIPPED, "夜间静默",
+                        "现在 ${nowCal.get(java.util.Calendar.HOUR_OF_DAY)}:" +
+                            "%02d".format(nowCal.get(java.util.Calendar.MINUTE)) +
+                            "，处于 23:30–08:00 静默时段，本次不主动开口。",
+                    )
+                    // 静默不等于停摆：照常排下一次，天亮了继续
+                    ProactiveMessageService.scheduleNext(appContext, proactiveSetting)
+                    return false
+                }
+
+                // 熄屏基本等于人不在：这时候发消息只会吵醒人
+                val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                if (powerManager != null && !powerManager.isInteractive) {
+                    ProactiveMessageLog.log(
+                        appContext, ProactiveMessageLog.Outcome.SKIPPED, "熄屏",
+                        "屏幕是灭的，判定为不在，本次不主动开口。",
+                    )
+                    ProactiveMessageService.scheduleNext(appContext, proactiveSetting)
+                    return false
+                }

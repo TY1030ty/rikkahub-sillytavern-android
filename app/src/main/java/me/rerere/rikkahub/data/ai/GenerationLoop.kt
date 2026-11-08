@@ -235,6 +235,11 @@ class GenerationLoop(
             if (hasCalculator) add("Math → calculator${if (hasPython) " (NOT execute_python)" else ""}")
             if (hasTool("web_search", "search_", "scrape_")) add("Web → web_search / web_fetch")
             if (hasTool("memory_tool", "memory_")) add("Memory → memory_tool")
+            // 工具懒加载：其余工具按组放在 load_tools 后面，只在这里点一下组名
+            val lazyGroups = me.rerere.rikkahub.data.ai.tools.LazyToolGroups.availableGroups().keys
+            if (lazyGroups.isNotEmpty()) {
+                add("More tools → load_tools (${lazyGroups.joinToString("/")})")
+            }
         }
         val ethicLines = buildList {
             add("❌ Do NOT describe what you will do — just do it")
@@ -304,7 +309,7 @@ class GenerationLoop(
         // 本轮最终注册的工具名：排查「记忆工具为何不见了」这类问题时，这一行就是答案
         Log.i(TAG, "tools(${if (settings.huadengSettings.enableTavernMode) "tavern" else "normal"}): ${if (isEmpty()) "(none)" else joinToString(", ") { it.name }}")
     }
-    val statusTrackedTools = toolsInternal.map { tool ->
+    fun trackStatus(list: List<Tool>): List<Tool> = list.map { tool ->
         if (tool.name == "ask_user") tool else tool.copy(
             execute = { args ->
                 processingStatus.value = describeTool(tool.name)
@@ -319,6 +324,7 @@ class GenerationLoop(
             }
         )
     }
+    val statusTrackedTools = trackStatus(toolsInternal)
     // ── 预构建：system 消息列表（循环不变，移到外面）──
     val prebuiltSystemMessages = buildCachedSystemPrompt(assistant, settings, messages, memories ?: emptyList(), conversationSystemPrompt, tools, model, context, conversationRepo)
 
@@ -333,6 +339,7 @@ class GenerationLoop(
 
     for (stepIndex in 0 until maxSteps) {
             Log.i(TAG, "streamText: start step #$stepIndex (${model.id})")
+            val stepTools = trackStatus(lazyToolsFor(conversationId, tools))
 
             // Check if we have tool calls ready to continue after user interaction.
             val pendingTools = messages.lastOrNull()?.getTools()?.filter {
@@ -379,7 +386,7 @@ class GenerationLoop(
                     model = model,
                     providerImpl = providerImpl,
                     provider = provider,
-                    tools = statusTrackedTools,
+                    tools = stepTools,
                     memories = memories ?: emptyList(),
                     stream = assistant.streamOutput,
                     processingStatus = processingStatus,
@@ -1210,6 +1217,19 @@ class GenerationLoop(
 /**
  * 执行单个工具调用（提取逻辑以避免并行/串行分支重复）
  */
+/** 懒加载工具：按会话累计已加载的组，未加载的组不进请求 */
+private val lazyLoadToolCache = java.util.concurrent.ConcurrentHashMap<String, Tool>()
+
+private fun lazyToolsFor(conversationId: Uuid?, tools: List<Tool>): List<Tool> {
+    val key = conversationId?.toString() ?: return tools
+    if (me.rerere.rikkahub.data.ai.tools.LazyToolGroups.availableGroups().isEmpty()) return tools
+    val base = me.rerere.rikkahub.data.ai.tools.LazyToolGroups.effective(key, tools)
+    if (base.any { it.name == "load_tools" }) return base
+    return base + lazyLoadToolCache.getOrPut(key) {
+        me.rerere.rikkahub.data.ai.tools.buildLoadToolsTool(key)
+    }
+}
+
 private suspend fun executeToolCall(
     tool: UIMessagePart.Tool,
     toolsInternal: List<Tool>,
@@ -1356,116 +1376,6 @@ private const val MAX_MEMORY_ANCHOR_BLOCKS = 2
  */
 private val personaDepthAnchors =
     java.util.concurrent.ConcurrentHashMap<String, Pair<String, String>>()
-
-
-/** 今天该做但没做的事：从 daily.py 的记录里读，让她不用翻工具也知道今天还差什么 */
-private fun buildDailyContext(): String {
-    val f = java.io.File(
-        "/sdcard/Download/06_脚本/mirrow/data/daily/" + java.time.LocalDate.now() + ".json"
-    )
-    if (!f.isFile) return ""
-    return runCatching {
-        val o = org.json.JSONObject(f.readText())
-        val hw = o.optJSONArray("homework") ?: org.json.JSONArray()
-        val pending = mutableListOf<String>()
-        for (i in 0 until hw.length()) {
-            val h = hw.getJSONObject(i)
-            if (!h.optBoolean("done")) pending.add(h.optString("item"))
-        }
-        val sb = StringBuilder()
-        sb.append("今天的功课共 ").append(hw.length()).append(" 项")
-        if (pending.isNotEmpty()) {
-            sb.append("，还没交的是：").append(pending.joinToString("、"))
-        } else if (hw.length() > 0) {
-            sb.append("，已经全部交了")
-        }
-        val water = o.optDouble("water_ml", 0.0).toInt()
-        if (water > 0) sb.append("；今天已喝水 ").append(water).append(" ml")
-        sb.toString()
-    }.getOrDefault("")
-}
-
-
-/** 最近一次读屏记录：优先给「刚才在别的 App 里」的那条，不只看当前这一个 */
-private fun buildScreenContext(): String {
-    val f = java.io.File("/sdcard/Download/06_脚本/mirrow/chat_records.jsonl")
-    if (!f.isFile) return ""
-    return runCatching {
-        val raf = java.io.RandomAccessFile(f, "r")
-        val len = raf.length()
-        val startAt = if (len > 32768) len - 32768 else 0L
-        raf.seek(startAt)
-        val buf = ByteArray((len - startAt).toInt())
-        raf.readFully(buf)
-        raf.close()
-        val lines = String(buf, Charsets.UTF_8)
-            .split("\n")
-            .filter { it.trim().startsWith("{") }
-            .takeLast(40)
-
-        // 屏幕上大半是「选集 / 分享 / 热度 / 展开」这类界面噪声，
-        // 真正的内容反而被 12 行的上限截掉了 —— 她读到的就是碎片。
-        // 这里先把纯 UI 词滤掉，再放宽到 30 行。
-        val noiseWords = listOf(
-            "选集", "分享", "收藏", "展开", "全屏观看", "倍速", "发弹幕", "热评：",
-            "暂无评分", "暂未开分", "累计收藏量", "热度值", "下滑退出", "作者声明",
-            "基本信息", "微短剧备字", "举 报", "举报", "下载",
-        )
-        fun wordsOf(o: org.json.JSONObject): String {
-            val arr = o.optJSONArray("lines") ?: return ""
-            return (0 until arr.length())
-                .map { arr.optString(it).trim() }
-                .filter { it.length > 1 }
-                .filter { s -> noiseWords.none { s.contains(it) } }
-                .distinct()
-                .take(30)
-                .joinToString(" / ")
-        }
-
-        val selfPkg = "me.rerere.rikkahub.huadeng.selfbuild"
-        var otherText = ""
-        var otherApp = ""
-        var otherTs = 0.0
-        var nowText = ""
-        var nowApp = ""
-        var nowTs = 0.0
-        for (line in lines) {
-            val o = runCatching { org.json.JSONObject(line) }.getOrNull() ?: continue
-            val app = o.optString("app")
-            val page = o.optString("page").ifBlank { app }
-            val ts = o.optDouble("ts", 0.0)
-            val w = wordsOf(o)
-            if (w.isBlank()) continue
-            if (app != selfPkg) {
-                otherText = w
-                otherApp = page
-                otherTs = ts
-            } else {
-                nowText = w
-                nowApp = page
-                nowTs = ts
-            }
-        }
-        // 只有「刚刚」的记录才算「此刻」，旧记录不能让她以为人还醒着
-        val nowSec = System.currentTimeMillis() / 1000.0
-        val sb = StringBuilder()
-        if (otherText.isNotBlank() && otherTs > 0) {
-            val age = (nowSec - otherTs) / 60.0
-            val whenText = when {
-                age <= 10 -> "刚刚"
-                age <= 60 -> "${age.toInt()} 分钟前"
-                age <= 600 -> "${(age / 60).toInt()} 小时前"
-                else -> "较早之前"
-            }
-            sb.append(whenText).append("对方在「").append(otherApp)
-                .append("」，屏幕上大致是：").append(otherText).append("。")
-        }
-        if (nowText.isNotBlank() && nowTs > 0 && (nowSec - nowTs) <= 300) {
-            sb.append("此刻在影里聊天。")
-        }
-        sb.toString()
-    }.getOrDefault("")
-}
 
 private fun buildUserContext(
     recentChats: String = "",
@@ -1684,3 +1594,113 @@ private fun String.isTavernBaseTool(): Boolean =
         this == "file" ||
         this == "web_fetch" ||
         this == "calculator"
+
+
+/** 今天该做但没做的事：从 daily.py 的记录里读，让她不用翻工具也知道今天还差什么 */
+private fun buildDailyContext(): String {
+    val f = java.io.File(
+        "/sdcard/Download/06_脚本/mirrow/data/daily/" + java.time.LocalDate.now() + ".json"
+    )
+    if (!f.isFile) return ""
+    return runCatching {
+        val o = org.json.JSONObject(f.readText())
+        val hw = o.optJSONArray("homework") ?: org.json.JSONArray()
+        val pending = mutableListOf<String>()
+        for (i in 0 until hw.length()) {
+            val h = hw.getJSONObject(i)
+            if (!h.optBoolean("done")) pending.add(h.optString("item"))
+        }
+        val sb = StringBuilder()
+        sb.append("今天的功课共 ").append(hw.length()).append(" 项")
+        if (pending.isNotEmpty()) {
+            sb.append("，还没交的是：").append(pending.joinToString("、"))
+        } else if (hw.length() > 0) {
+            sb.append("，已经全部交了")
+        }
+        val water = o.optDouble("water_ml", 0.0).toInt()
+        if (water > 0) sb.append("；今天已喝水 ").append(water).append(" ml")
+        sb.toString()
+    }.getOrDefault("")
+}
+
+
+/** 最近一次读屏记录：优先给「刚才在别的 App 里」的那条，不只看当前这一个 */
+private fun buildScreenContext(): String {
+    val f = java.io.File("/sdcard/Download/06_脚本/mirrow/chat_records.jsonl")
+    if (!f.isFile) return ""
+    return runCatching {
+        val raf = java.io.RandomAccessFile(f, "r")
+        val len = raf.length()
+        val startAt = if (len > 32768) len - 32768 else 0L
+        raf.seek(startAt)
+        val buf = ByteArray((len - startAt).toInt())
+        raf.readFully(buf)
+        raf.close()
+        val lines = String(buf, Charsets.UTF_8)
+            .split("\n")
+            .filter { it.trim().startsWith("{") }
+            .takeLast(40)
+
+        // 屏幕上大半是「选集 / 分享 / 热度 / 展开」这类界面噪声，
+        // 真正的内容反而被 12 行的上限截掉了 —— 她读到的就是碎片。
+        // 这里先把纯 UI 词滤掉，再放宽到 30 行。
+        val noiseWords = listOf(
+            "选集", "分享", "收藏", "展开", "全屏观看", "倍速", "发弹幕", "热评：",
+            "暂无评分", "暂未开分", "累计收藏量", "热度值", "下滑退出", "作者声明",
+            "基本信息", "微短剧备字", "举 报", "举报", "下载",
+        )
+        fun wordsOf(o: org.json.JSONObject): String {
+            val arr = o.optJSONArray("lines") ?: return ""
+            return (0 until arr.length())
+                .map { arr.optString(it).trim() }
+                .filter { it.length > 1 }
+                .filter { s -> noiseWords.none { s.contains(it) } }
+                .distinct()
+                .take(30)
+                .joinToString(" / ")
+        }
+
+        val selfPkg = "me.rerere.rikkahub.huadeng.selfbuild"
+        var otherText = ""
+        var otherApp = ""
+        var otherTs = 0.0
+        var nowText = ""
+        var nowApp = ""
+        var nowTs = 0.0
+        for (line in lines) {
+            val o = runCatching { org.json.JSONObject(line) }.getOrNull() ?: continue
+            val app = o.optString("app")
+            val page = o.optString("page").ifBlank { app }
+            val ts = o.optDouble("ts", 0.0)
+            val w = wordsOf(o)
+            if (w.isBlank()) continue
+            if (app != selfPkg) {
+                otherText = w
+                otherApp = page
+                otherTs = ts
+            } else {
+                nowText = w
+                nowApp = page
+                nowTs = ts
+            }
+        }
+        // 只有「刚刚」的记录才算「此刻」，旧记录不能让她以为人还醒着
+        val nowSec = System.currentTimeMillis() / 1000.0
+        val sb = StringBuilder()
+        if (otherText.isNotBlank() && otherTs > 0) {
+            val age = (nowSec - otherTs) / 60.0
+            val whenText = when {
+                age <= 10 -> "刚刚"
+                age <= 60 -> "${age.toInt()} 分钟前"
+                age <= 600 -> "${(age / 60).toInt()} 小时前"
+                else -> "较早之前"
+            }
+            sb.append(whenText).append("对方在「").append(otherApp)
+                .append("」，屏幕上大致是：").append(otherText).append("。")
+        }
+        if (nowText.isNotBlank() && nowTs > 0 && (nowSec - nowTs) <= 300) {
+            sb.append("此刻在影里聊天。")
+        }
+        sb.toString()
+    }.getOrDefault("")
+}
