@@ -566,6 +566,21 @@ internal fun AssistantBasicContent(
                 headlineContent = { Text(stringResource(R.string.assistant_page_gradient_background)) },
             )
 
+            formItem(
+                headlineContent = { Text(stringResource(R.string.assistant_page_tts_voice)) },
+                supportingContent = { Text(stringResource(R.string.assistant_page_tts_voice_desc)) },
+            ) {
+                OutlinedTextField(
+                    value = assistant.ttsVoice.orEmpty(),
+                    onValueChange = { value ->
+                        onUpdate(assistant.copy(ttsVoice = value.trim().ifBlank { null }))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("bella") },
+                    singleLine = true,
+                )
+            }
+
             if (!assistant.useGradientBackground) {
                 formItem(
                     headlineContent = { Text(stringResource(R.string.assistant_page_chat_background)) },
@@ -627,18 +642,3 @@ private const val MIN_CONTEXT_MESSAGE_LIMIT = 20
 
 internal fun normalizeContextMessageLimit(value: Int): Int =
     if (value in 1 until MIN_CONTEXT_MESSAGE_LIMIT) MIN_CONTEXT_MESSAGE_LIMIT else value
-
-            formItem(
-                headlineContent = { Text(stringResource(R.string.assistant_page_tts_voice)) },
-                supportingContent = { Text(stringResource(R.string.assistant_page_tts_voice_desc)) },
-            ) {
-                OutlinedTextField(
-                    value = assistant.ttsVoice.orEmpty(),
-                    onValueChange = { value ->
-                        onUpdate(assistant.copy(ttsVoice = value.trim().ifBlank { null }))
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("bella") },
-                    singleLine = true,
-                )
-            }

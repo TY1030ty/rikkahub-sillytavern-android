@@ -233,6 +233,8 @@ class RouteActivity : ComponentActivity() {
         ) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
+        // 前台标记：崩掉时这里写的 open 不会被改成 closed，下次启动据此续接对话
+        SessionGuard.markForeground(this)
         if (savedInstanceState == null) {
             handleIntent(intent)
         }
@@ -260,6 +262,16 @@ class RouteActivity : ComponentActivity() {
                 AppRoutes()
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        SessionGuard.markForeground(this)
+    }
+
+    override fun onPause() {
+        SessionGuard.markBackground(this)
+        super.onPause()
     }
 
     private fun disableNavigationBarContrast() {
@@ -387,6 +399,9 @@ class RouteActivity : ComponentActivity() {
         }
         val needsOnboarding = !OnboardingState.isCompleted(this) && !hasUsableModel
 
+        // 上次没干净结束（原生崩溃/被系统杀掉）就续接那个对话：
+        // 她发的消息是发出即落库的，回去最多丢「没回完的那半句」，不会丢掉整个聊天框
+        val sessionGuard = remember { SessionGuard.read(this@RouteActivity) }
         val startScreen: Screen = if (needsOnboarding) {
             Screen.Onboarding
         } else {
@@ -833,6 +848,10 @@ class RouteActivity : ComponentActivity() {
                                 WorkspaceTerminalPage(key.id)
                             }
 
+                            entry<Screen.DataBoard> {
+                                me.rerere.rikkahub.ui.pages.life.DataBoardPage()
+                            }
+
                             entry<Screen.MessageSearch> {
                                 SearchPage()
                             }
@@ -942,18 +961,6 @@ class RouteActivity : ComponentActivity() {
                 }
             }
         }
-        // 前台标记：崩掉时这里写的 open 不会被改成 closed，下次启动据此续接对话
-        SessionGuard.markForeground(this)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        SessionGuard.markForeground(this)
-    }
-
-    override fun onPause() {
-        SessionGuard.markBackground(this)
-        super.onPause()
     }
 }
 
@@ -1242,6 +1249,7 @@ sealed interface Screen : NavKey {
     data class WorkspaceTerminal(val id: String) : Screen
 
     @Serializable
+    data object DataBoard : Screen
     data object MessageSearch : Screen
 
     @Serializable
@@ -1277,14 +1285,6 @@ sealed interface Screen : NavKey {
     @Serializable
     data class VoiceCall(val conversationId: String) : Screen
 
-                            entry<Screen.DataBoard> {
-                                me.rerere.rikkahub.ui.pages.life.DataBoardPage()
-                            }
-
-        // 上次没干净结束（原生崩溃/被系统杀掉）就续接那个对话：
-        // 她发的消息是发出即落库的，回去最多丢「没回完的那半句」，不会丢掉整个聊天框
-        val sessionGuard = remember { SessionGuard.read(this@RouteActivity) }
     @Serializable
-    data object DataBoard : Screen
     data class VideoCall(val conversationId: String) : Screen
 }

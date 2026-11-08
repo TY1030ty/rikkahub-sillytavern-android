@@ -228,6 +228,14 @@
       android:exported="false"
       android:foregroundServiceType="dataSync" />
     <service
+      android:name=".service.KeepAliveService"
+      android:exported="false"
+      android:foregroundServiceType="specialUse">
+      <property
+        android:name="android:PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+        android:value="keep background companion threads alive" />
+    </service>
+    <service
       android:name=".service.WebServerService"
       android:exported="false"
       android:foregroundServiceType="specialUse">
@@ -277,14 +285,6 @@
     </service>
 
     <!-- QQ Bot (开放平台 API v2): WebSocket 网关收 QQ 私聊消息, 转给当前助手处理, 回复发回 QQ -->
-    <service
-      android:name=".service.KeepAliveService"
-      android:exported="false"
-      android:foregroundServiceType="specialUse">
-      <property
-        android:name="android:PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-        android:value="keep background companion threads alive" />
-    </service>
     <service
       android:name=".service.QqBotService"
       android:exported="false"
