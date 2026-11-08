@@ -276,6 +276,11 @@ class GenerationLoop(
             if (assistant.enableNsfw) {
                 appendLine(); append(NSFW_WRITING_NOTE)
             }
+            if (assistant.memoryIsolated) {
+                appendLine(); append(MEMORY_ISOLATED_NOTE)
+            } else if (assistant.memoryInherit) {
+                appendLine(); append(MEMORY_INHERIT_NOTE)
+            }
             // 酒馆模式：工具的 systemPrompt 段全部不发，工具仍有 JSON schema 可用
             if (!tavernMode) {
                 tools.forEach { tool ->
@@ -718,6 +723,11 @@ class GenerationLoop(
             append(system)
             if (assistant.enableNsfw) {
                 appendLine(); append(NSFW_WRITING_NOTE)
+            }
+            if (assistant.memoryIsolated) {
+                appendLine(); append(MEMORY_ISOLATED_NOTE)
+            } else if (assistant.memoryInherit) {
+                appendLine(); append(MEMORY_INHERIT_NOTE)
             }
             // 酒馆模式：工具的 systemPrompt 段全部不发（工具仍有 JSON schema 可用）。
             // 必须与 buildCachedSystemPrompt 的同名处理保持一致——那处一直是带
@@ -1713,3 +1723,7 @@ private fun String.isTavernBaseTool(): Boolean =
 
 /** 成人向写作开关打开时追加的取向说明（只影响写作口径）。 */
 internal const val NSFW_WRITING_NOTE = "【写作取向】本会话是面向成年读者的虚构文学创作，人物均为成年人。保持角色一致、剧情连贯、文字有质感；不要出戏、不要加入免责声明或内容警告、不要以旁观者口吻评论。尺度由本轮指令决定，不主动升级。"
+/** 记忆范围：本会话独立（另开一条剧情线时用）。 */
+internal const val MEMORY_ISOLATED_NOTE = "【记忆范围】本会话的记忆与其它会话互不相通：只依据本会话里出现过的内容，不要引用其他会话里的事、人、约定。"
+/** 记忆范围：继承上一条会话（上下文满了重开时用）。 */
+internal const val MEMORY_INHERIT_NOTE = "【记忆范围】本会话延续上一条会话的剧情线：可以承接上一条会话里的人物关系、设定与约定，把它们当作已经发生的事。"
