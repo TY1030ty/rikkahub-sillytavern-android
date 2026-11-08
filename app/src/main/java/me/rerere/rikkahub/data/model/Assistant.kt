@@ -48,6 +48,9 @@ data class Assistant(
     // 记忆功能默认开启：记忆让 AI 更了解用户
     val enableMemory: Boolean = true,
     val useGlobalMemory: Boolean = false, // 使用全局共享记忆而非助手隔离记忆
+    // 成人向写作开关：打开后本助手的系统提示尾部会追加一段“成年读者向虚构写作”的取向说明
+    // （只影响写作口径，不改变模型本身的内容policy）
+    val enableNsfw: Boolean = false,
     // 上下文滚动压缩：达到阈值后自动把早期对话压缩为摘要（保留原文，仅请求时替换前缀）
     // 默认关闭：入口已从设置里移除，无法再关闭，故对所有助手统一停用。
     // 该字段仅为兼容旧数据保留，设置归一化时会强制置 false。
