@@ -273,6 +273,9 @@ class GenerationLoop(
         val system = me.rerere.rikkahub.data.ai.prompts.SystemPromptAssembler.assemble(assemblerContext)
         val mainText = buildString {
             append(system)
+            if (assistant.enableNsfw) {
+                appendLine(); append(NSFW_WRITING_NOTE)
+            }
             // 酒馆模式：工具的 systemPrompt 段全部不发，工具仍有 JSON schema 可用
             if (!tavernMode) {
                 tools.forEach { tool ->
@@ -1704,3 +1707,6 @@ private fun String.isTavernBaseTool(): Boolean =
         this == "file" ||
         this == "web_fetch" ||
         this == "calculator"
+
+/** 成人向写作开关打开时追加的取向说明（只影响写作口径）。 */
+internal const val NSFW_WRITING_NOTE = "【写作取向】本会话是面向成年读者的虚构文学创作，人物均为成年人。保持角色一致、剧情连贯、文字有质感；不要出戏、不要加入免责声明或内容警告、不要以旁观者口吻评论。尺度由本轮指令决定，不主动升级。"
