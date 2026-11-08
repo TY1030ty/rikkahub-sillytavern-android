@@ -284,6 +284,25 @@ internal fun AssistantBasicContent(
 
         CardGroup {
             switchItem(
+                checked = assistant.memoryIsolated,
+                onCheckedChange = {
+                    onUpdate(assistant.copy(memoryIsolated = it, memoryInherit = if (it) false else assistant.memoryInherit))
+                },
+                supportingContent = { Text("只依据本会话的内容，不引用其他会话的记忆。另开一条剧情线时用这个。") },
+                headlineContent = { Text("本会话记忆独立") },
+            )
+            switchItem(
+                checked = assistant.memoryInherit,
+                onCheckedChange = {
+                    onUpdate(assistant.copy(memoryInherit = it, memoryIsolated = if (it) false else assistant.memoryIsolated))
+                },
+                supportingContent = { Text("把上一条会话的记忆带进来。上下文满了、需要重开一条时用这个。") },
+                headlineContent = { Text("继承上一条会话的记忆") },
+            )
+        }
+
+        CardGroup {
+            switchItem(
                 checked = assistant.enableNsfw,
                 onCheckedChange = {
                     onUpdate(assistant.copy(enableNsfw = it))
