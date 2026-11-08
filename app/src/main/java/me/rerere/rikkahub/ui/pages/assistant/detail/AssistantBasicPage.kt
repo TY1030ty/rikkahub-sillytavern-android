@@ -283,17 +283,13 @@ internal fun AssistantBasicContent(
         }
 
         CardGroup {
-            formItem(
-                headlineContent = { Text("成人向写作") },
+            switchItem(
+                checked = assistant.enableNsfw,
+                onCheckedChange = {
+                    onUpdate(assistant.copy(enableNsfw = it))
+                },
                 supportingContent = { Text("打开后本助手的系统提示尾部追加一段“成年读者向虚构写作”的取向说明（只改写作口径，不改模型本身策略）") },
-                trailingContent = {
-                    Switch(
-                        checked = assistant.enableNsfw,
-                        onCheckedChange = { onCheckedChange ->
-                            onUpdate(assistant.copy(enableNsfw = onCheckedChange))
-                        }
-                    )
-                }
+                headlineContent = { Text("成人向写作") },
             )
         }
 
