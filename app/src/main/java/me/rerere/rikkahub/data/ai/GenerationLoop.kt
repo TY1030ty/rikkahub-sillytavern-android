@@ -716,6 +716,9 @@ class GenerationLoop(
 
             // ── 工具prompt（追加在 assembler 结果之后）──
             append(system)
+            if (assistant.enableNsfw) {
+                appendLine(); append(NSFW_WRITING_NOTE)
+            }
             // 酒馆模式：工具的 systemPrompt 段全部不发（工具仍有 JSON schema 可用）。
             // 必须与 buildCachedSystemPrompt 的同名处理保持一致——那处一直是带
             // tavernMode 判断的，这里此前漏了，导致走 fallback 路径时酒馆模式
