@@ -2,6 +2,7 @@ package me.rerere.rikkahub.ui.pages.life
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -27,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import java.io.File
 import me.rerere.rikkahub.ui.components.nav.BackButton
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -88,6 +91,53 @@ private fun readDay(f: File): DaySummary? = runCatching {
 }.getOrNull()
 
 
+
+private const val REMINDERS_FILE = "/sdcard/Download/06_脚本/mirrow/data/reminders.json"
+
+private data class Reminder(val id: Int, val text: String, val atMs: Long, val done: Boolean, val repeat: String)
+
+private fun readReminders(): List<Reminder> = runCatching {
+    val arr = JSONArray(File(REMINDERS_FILE).readText())
+    (0 until arr.length()).mapNotNull { i ->
+        val o = arr.getJSONObject(i)
+        Reminder(
+            id = o.optInt("id"),
+            text = o.optString("text"),
+            atMs = (o.optDouble("at", 0.0) * 1000).toLong(),
+            done = o.optBoolean("done"),
+            repeat = o.optString("repeat").ifBlank { "none" },
+        )
+    }.sortedBy { it.atMs }
+}.getOrElse { emptyList() }
+
+/** 勾掉 / 取消勾选一条提醒，直接写回 json（脚本那边会同步） */
+private fun setReminderDone(id: Int, done: Boolean): Boolean = runCatching {
+    val arr = JSONArray(File(REMINDERS_FILE).readText())
+    for (i in 0 until arr.length()) {
+        val o = arr.getJSONObject(i)
+        if (o.optInt("id") == id) {
+            o.put("done", done)
+            arr.put(i, o)
+        }
+    }
+    File(REMINDERS_FILE).writeText(arr.toString())
+    true
+}.getOrDefault(false)
+
+private fun deleteReminder(id: Int): Boolean = runCatching {
+    val arr = JSONArray(File(REMINDERS_FILE).readText())
+    val out = JSONArray()
+    for (i in 0 until arr.length()) {
+        val o = arr.getJSONObject(i)
+        if (o.optInt("id") != id) out.put(o)
+    }
+    File(REMINDERS_FILE).writeText(out.toString())
+    true
+}.getOrDefault(false)
+
+private fun fmtTime(ms: Long): String =
+    java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(ms))
+
 private const val EVIDENCE_DIR = "/sdcard/Download/06_脚本/mirrow/data/evidence"
 
 /** 把选中的文件存下来，并把对应功课标成已交 */
@@ -111,6 +161,7 @@ private fun submitEvidence(date: String, index: Int, name: String, bytes: ByteAr
 @Composable
 fun DataBoardPage() {
     var days by remember { mutableStateOf<List<DaySummary>>(emptyList()) }
+    var reminders by remember { mutableStateOf<List<Reminder>>(emptyList()) }
     var reload by remember { mutableStateOf(0) }
     LaunchedEffect(reload) {
         days = runCatching {
@@ -125,7 +176,7 @@ fun DataBoardPage() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("数据看板") },
+                title = { Text("任务与提醒") },
                 navigationIcon = { BackButton() },
             )
         },
@@ -134,8 +185,36 @@ fun DataBoardPage() {
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("提醒（点一下打勾，已完成的会沉下去）", style = MaterialTheme.typography.titleMedium)
+                        if (reminders.isEmpty()) {
+                            Text("还没有提醒。跟她说「提醒我 8 点吃药」，就会出现在这里。",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        reminders.sortedWith(compareBy({ it.done }, { it.atMs })).forEach { r ->
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = r.done,
+                                    onCheckedChange = { v -> if (setReminderDone(r.id, v)) reload++ },
+                                )
+                                Text(
+                                    (if (r.done) "✓ " else "") + r.text,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(fmtTime(r.atMs), style = MaterialTheme.typography.labelSmall)
+                                TextButton(onClick = { if (deleteReminder(r.id)) reload++ }) {
+                                    Text("删", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if (days.isEmpty()) {
-                item { Text("还没有记录。今天定好功课后，这里就会出现。", modifier = Modifier.padding(top = 24.dp)) }
+                item { Text("还没有记录。今天定好功课后，这里就会出现。", modifier = Modifier.padding(top = 12.dp)) }
             }
             items(days, key = { it.date }) { d ->
                 Card(Modifier.fillMaxWidth()) {
