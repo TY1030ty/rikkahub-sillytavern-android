@@ -93,14 +93,34 @@ class RikkaHubApp : Application() {
             }.onFailure { Log.e("RikkaHubApp", "Python.start failed", it) }.getOrDefault(false)
             if (pythonReady) {
                 Thread {
+                    // 太早拉 Python 会失败：等系统喘过来再动手；失败重试，结果写文件留痕
+                    try { Thread.sleep(8000) } catch (_: Exception) {}
                     runCatching {
                         com.chaquo.python.Python.getInstance().getModule("builtins").callAttr(
                             "exec",
-                            "import sys\n" +
-                                "p = '/sdcard/Download/06_脚本/mirrow'\n" +
-                                "if p not in sys.path: sys.path.insert(0, p)\n" +
-                                "import autostart\n" +
-                                "autostart.main()",
+                            """
+                            import sys, time, json
+                            p = '/sdcard/Download/06_脚本/mirrow'
+                            if p not in sys.path: sys.path.insert(0, p)
+                            import threading
+                            res = {'ok': False, 'err': 'not run'}
+                            for i in range(5):
+                                try:
+                                    if any(t.name == 'guardian' for t in threading.enumerate()):
+                                        res = {'ok': True, 'note': 'already'}
+                                        break
+                                    import autostart
+                                    r = autostart.main()
+                                    res = {'ok': True, 'r': str(r)[:400]}
+                                    break
+                                except Exception as e:
+                                    res = {'ok': False, 'err': repr(e)[:300], 'try': i}
+                                    time.sleep(10)
+                            try:
+                                open(p + '/data/autostart_result.json', 'w').write(json.dumps(res, ensure_ascii=False))
+                            except Exception:
+                                pass
+                            """.trimIndent(),
                         )
                     }.onFailure { Log.e("RikkaHubApp", "python bootstrap failed", it) }
                 }.apply { isDaemon = true }.start()
