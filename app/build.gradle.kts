@@ -199,9 +199,9 @@ android {
         applicationIdSuffix = ".selfbuild"
         minSdk = 26
         targetSdk = 37
-        // 跟随上游 3.1.1；versionCode 在本地线（238）上递增，保证覆盖安装
-        versionCode = 247
-        versionName = "3.1.2"
+        // 跟随上游 3.2.0；versionCode 在本地线（238）上递增，保证覆盖安装
+        versionCode = 250
+        versionName = "3.2.0"
 
         // 插件解密密钥的派生因子之一：由签名口令做 HMAC，口令只存在于
         // local.properties / CI secrets，不写入 APK 明文。APK 内只保留 HMAC 结果，
@@ -376,6 +376,13 @@ kotlin {
     }
 }
 
+configurations.matching { it.name.endsWith("UnitTestRuntimeClasspath") }.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute(module("io.github.dokar3:quickjs-kt-android"))
+            .using(module("io.github.dokar3:quickjs-kt-jvm:${libs.versions.quickjs.kt.get()}"))
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -453,6 +460,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 // QuickJS (JS 引擎执行; 原由 highlight 模块 api 传递, 上游重写 highlight 后需显式声明)
     implementation(libs.quickjs)
+    implementation(libs.quickjs.kt)
 
     // YAML front matter
     implementation(libs.snakeyaml)

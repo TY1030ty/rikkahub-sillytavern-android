@@ -275,6 +275,7 @@ val dataSourceModule = module {
             memoryRepo = get(),
             conversationRepo = get(),
             pluginToolProvider = get(),
+            usageRecorder = get(),
         )
     }
 

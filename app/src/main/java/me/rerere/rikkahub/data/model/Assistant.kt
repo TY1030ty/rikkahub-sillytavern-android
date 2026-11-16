@@ -1,7 +1,12 @@
 package me.rerere.rikkahub.data.model
 
 import kotlinx.serialization.SerialName
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import me.rerere.ai.core.MessageRole
@@ -16,14 +21,19 @@ import me.rerere.rikkahub.utils.SimpleCache
 import java.util.concurrent.TimeUnit
 import kotlin.uuid.Uuid
 
-// 界面 WebView 化：自动识别 / 总是 WebView / 总是原生
-@Serializable
+// 华灯兼容模式开卡片渲染，纯原生只渲染文本；旧 AUTO/ALWAYS/TAVERN 一律落 COMPAT
+@Serializable(with = FrontendCardModeSerializer::class)
 enum class FrontendCardMode {
-    AUTO,
-    ALWAYS,
-    NEVER,
-    // 内置 SillyTavern 前端：酒馆脚本、前端卡、正则都按酒馆那套跑
-    TAVERN,
+    COMPAT,
+    NATIVE,
+}
+
+object FrontendCardModeSerializer : KSerializer<FrontendCardMode> {
+    override val descriptor = PrimitiveSerialDescriptor("FrontendCardMode", PrimitiveKind.STRING)
+    override fun deserialize(decoder: Decoder): FrontendCardMode =
+        if (decoder.decodeString().equals("NEVER", ignoreCase = true)) FrontendCardMode.NATIVE else FrontendCardMode.COMPAT
+
+    override fun serialize(encoder: Encoder, value: FrontendCardMode) = encoder.encodeString(value.name)
 }
 
 @Serializable
@@ -57,6 +67,11 @@ data class Assistant(
     // 两者都关 = 跟随全局（默认）
     val memoryIsolated: Boolean = false,
     val memoryInherit: Boolean = false,
+    // 记忆 RAG：按对话内容自动检索相关记忆片段注入，省掉模型自己翻记忆文件的 token
+    val enableMemoryRag: Boolean = true,
+    val ragSimilarityThreshold: Float = 0.2f, // RAG 相似度下限，越高越只取强相关片段
+    val ragLimit: Int = 6, // 单轮最多召回的片段数
+    val enableRagLogging: Boolean = false, // 输出召回日志，排查为何没命中
     // 上下文滚动压缩：达到阈值后自动把早期对话压缩为摘要（保留原文，仅请求时替换前缀）
     // 默认关闭：入口已从设置里移除，无法再关闭，故对所有助手统一停用。
     // 该字段仅为兼容旧数据保留，设置归一化时会强制置 false。
@@ -71,8 +86,8 @@ data class Assistant(
     val mergeGreetings: Boolean = false,
     // 导入的角色卡自带前端（HTML 卡片）时置位：聊天页据此直接进前端模式。
     val frontendCardPreferred: Boolean = false,
-    // 界面 WebView 化：默认自动识别（开场白/角色世界书含网页时切换）
-    val frontendCardMode: FrontendCardMode = FrontendCardMode.AUTO,
+    // 默认开卡片渲染（华灯兼容模式）
+    val frontendCardMode: FrontendCardMode = FrontendCardMode.COMPAT,
     val quickMessageIds: Set<Uuid> = emptySet(),
     val regexes: List<AssistantRegex> = emptyList(),
     val reasoningLevel: ReasoningLevel = ReasoningLevel.AUTO,
@@ -570,11 +585,20 @@ enum class InjectionPosition {
     @SerialName("author_note")
     AUTHOR_NOTE,            // Author's Note 位置（由用户设置决定，不固定）
 
+    @SerialName("before_author_note")
+    BEFORE_AUTHOR_NOTE,     // 官方 ANTop (position=2)：Author's Note 之前
+
+    @SerialName("after_author_note")
+    AFTER_AUTHOR_NOTE,      // 官方 ANBottom (position=3)：Author's Note 之后
+
     @SerialName("em_top")
     EM_TOP,                 // 官方 EMTop：示例消息之前
 
     @SerialName("em_bottom")
     EM_BOTTOM,              // 官方 EMBottom：示例消息之后
+
+    @SerialName("outlet")
+    OUTLET,                 // 官方 outlet：不直接注入，经 {{outlet::name}} 宏引用展开
 }
 
 /**
@@ -608,6 +632,7 @@ sealed class PromptInjection {
         override val content: String = "",
         override val injectDepth: Int = 4,
         override val role: MessageRole = MessageRole.USER,
+        val presetGroup: String? = null,                 // 预设来源分组（酒馆预设文件名；null=未分组）
     ) : PromptInjection()
 
     /**
@@ -645,6 +670,7 @@ sealed class PromptInjection {
         // 官方 extensions.delay_until_recursion：true
         @Serializable(with = DelayUntilRecursionSerializer::class)
         val delayUntilRecursion: Int = 0,
+        val outletName: String = "",                     // 酒馆 extensions.outlet_name（position=OUTLET 时被 {{outlet::name}} 展开）
         val useProbability: Boolean = true,              // 是否启用概率过滤（false=忽略probability直接触发）
         val inclusionGroup: String = "",                 // 本地遗留字段（官方无此字段；官方分组用顶层 group 逗号分隔）
         val useGroupScoring: Boolean = false,            // 酒馆 extensions.use_group_scoring（按匹配关键词数选组胜者）
@@ -1082,13 +1108,24 @@ val ALWAYS_ADD_LOCAL_TOOLS: List<LocalToolOption> = listOf(
     LocalToolOption.PresentFile,
 )
 
+/** 把已经不存在的旧序列名换成现在的选项，只做映射，不动用户关掉的开关 */
+fun Assistant.withMigratedLocalTools(): Assistant {
+    if (localTools.none { it == LocalToolOption.PhoneControlLegacy }) return this
+    return copy(
+        localTools = localTools.map {
+            if (it == LocalToolOption.PhoneControlLegacy) LocalToolOption.PhoneUse else it
+        }.distinct()
+    )
+}
+
 fun Assistant.withNewLocalTools(): Assistant {
+    val mapped = withMigratedLocalTools().localTools
     val missing = buildList {
-        if (localTools.isEmpty() || LEGACY_LOCAL_TOOLS.containsAll(localTools)) {
-            addAll(DEFAULT_NEW_LOCAL_TOOLS.filterNot { it in localTools })
+        if (mapped.isEmpty() || LEGACY_LOCAL_TOOLS.containsAll(mapped)) {
+            addAll(DEFAULT_NEW_LOCAL_TOOLS.filterNot { it in mapped })
         }
-        addAll(ALWAYS_ADD_LOCAL_TOOLS.filterNot { it in localTools })
+        addAll(ALWAYS_ADD_LOCAL_TOOLS.filterNot { it in mapped })
     }
-    if (missing.isEmpty()) return this
-    return copy(localTools = localTools + missing)
+    if (missing.isEmpty() && mapped == localTools) return this
+    return copy(localTools = mapped + missing)
 }

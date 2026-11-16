@@ -247,6 +247,16 @@ data class HuaDengSettings(
     val tavernPresets: Map<String, kotlinx.serialization.json.JsonElement> = emptyMap(),
     // 当前从哪个预设加载而来（getLoadedPresetName）
     val loadedPresetName: String? = null,
+    // 酒馆全局脚本：原始 JSON 数组字符串，脚本读写无损
+    val tavernGlobalScripts: String = "[]",
+    // 酒馆全局脚本总开关
+    val tavernGlobalScriptsEnabled: Boolean = true,
+    // 按预设组存的脚本：JSON 对象字符串 {组名: [脚本项]}，喂给 mergePresetScripts(String?)
+    val tavernPresetScripts: String = "{}",
+    // 已禁用的第三方扩展标识
+    val tavernThirdPartyDisabled: Set<String> = emptySet(),
+    // 酒馆扩展配置：原始 JSON 对象字符串，无损落盘
+    val tavernExtensionSettings: String = "{}",
 
     // ---- 酒馆模式：纯净请求 ----
     // 开启后请求里只保留「角色卡（含世界书/示例消息/系统提示）+ 聊天历史 + 工具
@@ -281,6 +291,17 @@ data class HuaDengSettings(
     val jevTakeoverMemory: Boolean = false,
     // 大模型工具调用：把 Jev 注册成 judge 工具挂给主力模型
     val jevJudgeTool: Boolean = false,
+
+    // ---- 发消息前自动上下文 Hook ----
+    // 提交请求前静默跑一次 MCP 工具，把返回文本作为临时上下文拼进当轮请求，
+    // 不写回对话历史。省掉模型先 tool_call 再往返一轮的延迟。
+    val enablePreRequestHook: Boolean = false,
+    // 目标 MCP 服务器 id（Uuid 字符串，空表示未配置）
+    val preRequestHookServerId: String = "",
+    // 目标工具名
+    val preRequestHookToolName: String = "",
+    // 工具入参模板，${last_user_message} 会替换成用户最新那句话
+    val preRequestHookArgsTemplate: String = "{\"query\": \"\${last_user_message}\"}",
 )
 
 /**
@@ -474,6 +495,9 @@ data class DisplaySetting(
     val hideSearchPicker: Boolean = false,
     val hideReasoningPicker: Boolean = false,
     val hideMoreButton: Boolean = false,
+    // 前端卡工具栏按钮隐藏开关（true = 隐藏）
+    val hideCardExpandButton: Boolean = false,
+    val hideCardRefreshButton: Boolean = false,
     // 侧边栏功能入口隐藏开关（true = 隐藏）
     val hideDrawerMediaCreation: Boolean = false,
     val hideDrawerAiTranslate: Boolean = false,

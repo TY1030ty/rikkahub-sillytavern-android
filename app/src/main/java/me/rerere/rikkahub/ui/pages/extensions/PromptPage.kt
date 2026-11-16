@@ -110,6 +110,7 @@ import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.export.LorebookSerializer
 import me.rerere.rikkahub.data.export.ModeInjectionSerializer
 import me.rerere.rikkahub.data.export.SillyTavernRegexImporter
+import me.rerere.rikkahub.ui.hooks.readBooleanPreference
 import me.rerere.rikkahub.ui.hooks.rememberExporter
 import me.rerere.rikkahub.ui.hooks.rememberImporter
 import me.rerere.rikkahub.data.model.InjectionPosition
@@ -135,6 +136,7 @@ import me.rerere.rikkahub.ui.components.ui.Tag
 import me.rerere.rikkahub.ui.components.ui.TagType
 import me.rerere.rikkahub.ui.context.LocalToaster
 import me.rerere.rikkahub.ui.hooks.useEditState
+import me.rerere.rikkahub.ui.hooks.writeBooleanPreference
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.utils.plus
 import me.rerere.ui.components.FormItem
@@ -155,11 +157,44 @@ private enum class PromptTab(
         @Composable get() = stringResource(labelRes)
 }
 
+private const val KEY_PRESET_NOTICE_DISMISSED = "preset_third_party_notice_dismissed"
+
 @Composable
 fun PromptPage(vm: PromptVM = koinViewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { PromptTab.entries.size }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val context = LocalContext.current
+    // 第三方内容提示每次进页面弹一次，「不再提示」后永久关闭
+    var showNotice by remember { mutableStateOf(!context.readBooleanPreference(KEY_PRESET_NOTICE_DISMISSED)) }
+
+    if (showNotice) {
+        AlertDialog(
+            onDismissRequest = { showNotice = false },
+            title = { Text(stringResource(R.string.preset_page_notice_title)) },
+            text = {
+                Text(
+                    text = stringResource(R.string.preset_page_third_party_notice),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                Button(onClick = { showNotice = false }) {
+                    Text(stringResource(R.string.preset_page_notice_got_it))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        context.writeBooleanPreference(KEY_PRESET_NOTICE_DISMISSED, true)
+                        showNotice = false
+                    }
+                ) {
+                    Text(stringResource(R.string.preset_page_notice_never))
+                }
+            },
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -585,7 +620,9 @@ private fun InjectionPosition.usesStandaloneMessage(): Boolean = when (this) {
     InjectionPosition.BEFORE_SYSTEM_PROMPT,
     InjectionPosition.AFTER_SYSTEM_PROMPT,
     InjectionPosition.BEFORE_CHARACTER,
-    InjectionPosition.AFTER_CHARACTER -> false
+    InjectionPosition.AFTER_CHARACTER,
+    // outlet 不注入任何位置，仅经 {{outlet::name}} 宏引用展开
+    InjectionPosition.OUTLET -> false
 
     InjectionPosition.ANTAGONIZE,
     InjectionPosition.TOP_OF_CHAT,
@@ -593,6 +630,8 @@ private fun InjectionPosition.usesStandaloneMessage(): Boolean = when (this) {
     InjectionPosition.AFTER_DIALOG,
     InjectionPosition.AT_DEPTH,
     InjectionPosition.AUTHOR_NOTE,
+    InjectionPosition.BEFORE_AUTHOR_NOTE,
+    InjectionPosition.AFTER_AUTHOR_NOTE,
     InjectionPosition.EM_TOP,
     InjectionPosition.EM_BOTTOM -> true
 }
@@ -609,8 +648,11 @@ private fun getPositionLabel(position: InjectionPosition): String = when (positi
     InjectionPosition.AFTER_DIALOG -> stringResource(R.string.prompt_page_position_after_dialog)
     InjectionPosition.AT_DEPTH -> stringResource(R.string.prompt_page_position_at_depth)
     InjectionPosition.AUTHOR_NOTE -> stringResource(R.string.prompt_page_position_author_note)
+    InjectionPosition.BEFORE_AUTHOR_NOTE -> stringResource(R.string.prompt_page_position_before_author_note)
+    InjectionPosition.AFTER_AUTHOR_NOTE -> stringResource(R.string.prompt_page_position_after_author_note)
     InjectionPosition.EM_TOP -> stringResource(R.string.prompt_page_pos_em_top)
     InjectionPosition.EM_BOTTOM -> stringResource(R.string.prompt_page_pos_em_bottom)
+    InjectionPosition.OUTLET -> stringResource(R.string.prompt_page_pos_outlet)
 }
 
 @Composable

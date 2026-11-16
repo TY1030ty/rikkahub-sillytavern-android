@@ -47,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.composables.icons.lucide.ArrowRight
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Lucide
@@ -650,6 +651,10 @@ private fun ExtrasStep(
         skipLabel = stringResource(R.string.onboarding_extras_skip),
         onSkip = onFinish,
         skipHighlighted = true,
+        footer = {
+            DisclaimerLines()
+            Spacer(Modifier.height(16.dp))
+        },
     ) {
         Column(
             modifier = Modifier
@@ -804,6 +809,7 @@ private fun StepScaffold(
     skipLabel: String,
     onSkip: (() -> Unit)? = null,
     skipHighlighted: Boolean = false,
+    footer: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -845,6 +851,17 @@ private fun StepScaffold(
                 .padding(horizontal = 24.dp)
         ) {
             content()
+        }
+
+        // 页脚固定在最下方，不随内容滚走
+        if (footer != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+            ) {
+                footer()
+            }
         }
     }
 }
@@ -966,6 +983,29 @@ private fun OriginalImportRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+/** 引导页底部的灰字免责声明：小字号、左对齐、统一行距，整块不滚动。 */
+@Composable
+private fun DisclaimerLines() {
+    val lines = listOf(
+        R.string.onboarding_disclaimer_accuracy,
+        R.string.onboarding_disclaimer_medical,
+        R.string.onboarding_disclaimer_framework,
+    )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        lines.forEach { res ->
+            Text(
+                text = "· " + stringResource(res),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 15.sp,
+            )
         }
     }
 }

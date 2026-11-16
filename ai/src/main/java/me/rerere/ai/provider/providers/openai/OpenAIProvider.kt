@@ -35,6 +35,7 @@ import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.util.KeyRoulette
 import me.rerere.ai.util.configureReferHeaders
 import me.rerere.ai.util.json
+import me.rerere.ai.util.logRequestBody
 import me.rerere.ai.util.mergeCustomBody
 import me.rerere.ai.util.mergeCustomHeaders
 import me.rerere.ai.util.toHeaders
@@ -213,7 +214,7 @@ class OpenAIProvider(
                 .mergeCustomBody(params.customBody)
         )
 
-        Log.i(TAG, "generateImage: $requestBody")
+        logRequestBody(TAG, "generateImage") { requestBody.toString() }
 
         val request = Request.Builder()
             .url("${providerSetting.baseUrl}/images/generations")

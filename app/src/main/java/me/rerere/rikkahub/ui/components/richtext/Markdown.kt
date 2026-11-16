@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -264,15 +265,12 @@ fun MarkdownBlock(
     modifier: Modifier = Modifier,
     style: TextStyle = LocalTextStyle.current,
     onClickCitation: (String) -> Unit = {},
-    /**
-     * 前端卡的宿主能力包；透传给 [HtmlWebViewBlock]。
-     * 为 null 时不注入任何宿主 API，卡会走它自己的「宿主未注入」分支。
-     */
-    cardHost: CardHostContext? = null,
-    /** 当前对话消息快照（官方 swipes 结构），供卡内 `getChatMessages` 读取。 */
-    cardMessagesJson: String = "[]",
     // 生成中禁用卡片渲染：半截 HTML 交给 WebView 会渲染出残缺网页
     isStreaming: Boolean = false,
+    // 原生模式（纯文本界面）：不建 WebView，卡片源码按 Markdown 显示
+    renderCards: Boolean = true,
+    // 面板所属消息 id：runtime 靠它定位楼层变量
+    messageKey: String = "",
 ) {
     val settings = LocalSettings.current.displaySetting
 
@@ -280,46 +278,29 @@ fun MarkdownBlock(
     val display = if (isStreaming) content else content.closeUnclosedFence()
     // 转义过的卡片（&lt;html&gt;…）先解一层，否则标签判据全失效、整条按源码显示
     val cardText = if (isStreaming) display else decodeEscapedCardHtml(display)
+    // 原生模式走解码后的文本，卡片源码才不会显示成 &lt;div&gt;
+    val plainSource = if (renderCards) display else cardText
 
-    // 酒馆角色卡等 HTML 富文本：把 HTML 卡片拆出来交给 WebView 渲染
-    // （支持 <style>/class CSS）。前端卡（```html 围栏包完整 HTML 文档）
-    // 优先按围栏拆分，否则 <html> 前的 DOCTYPE/head 会被当成散文渲染出源码。
-    // 卡片默认内联展开、高度自适应——对齐官方把卡片内联进消息 DOM 的行为。
-    val fencedCard = if (isStreaming) null else findFencedHtmlDocument(cardText)
-    // 裸 HTML 路径要按「散文 / 卡片」交替拆段。
-    val segments = if (fencedCard == null && !isStreaming) {
-        splitCardSegments(cardText)
-    } else {
-        emptyList()
-    }
-    val hasCard = fencedCard != null || segments.any { it.first }
+    // 酒馆角色卡等 HTML 富文本：正文与面板交替分段，正文走原生 Markdown，面板交给 WebView
+    val pieces = if (isStreaming || !renderCards) emptyList() else splitMixedMessagePieces(cardText)
+    val hasCard = pieces.any { it is MixedContentPiece.HtmlPanel }
     if (hasCard) {
         Column(modifier) {
-            if (fencedCard != null) {
-                val (prose, fenced) = fencedCard
-                if (prose.isNotEmpty()) {
-                    MarkdownBlock(
-                        content = prose,
-                        onClickCitation = onClickCitation,
-                        cardHost = cardHost,
-                        cardMessagesJson = cardMessagesJson,
-                        isStreaming = isStreaming,
-                    )
-                }
-                HtmlWebViewBlock(html = fenced, cardHost = cardHost, cardMessagesJson = cardMessagesJson)
-                return@Column
-            }
-            segments.forEach { (isCard, text) ->
-                if (isCard) {
-                    HtmlWebViewBlock(html = text, cardHost = cardHost, cardMessagesJson = cardMessagesJson)
-                } else {
-                    MarkdownBlock(
-                        content = text,
-                        onClickCitation = onClickCitation,
-                        cardHost = cardHost,
-                        cardMessagesJson = cardMessagesJson,
-                        isStreaming = isStreaming,
-                    )
+            pieces.forEach { piece ->
+                key(piece.subIndex) {
+                    when (piece) {
+                        is MixedContentPiece.HtmlPanel -> HtmlWebViewBlock(
+                            html = piece.html,
+                            panelTitleOverride = piece.panelTitle,
+                            messageKey = if (piece.subIndex == 0) messageKey else messageKey + "#" + piece.subIndex,
+                        )
+
+                        is MixedContentPiece.MarkdownBody -> MarkdownBlock(
+                            content = piece.text,
+                            onClickCitation = onClickCitation,
+                            isStreaming = isStreaming,
+                        )
+                    }
                 }
             }
         }
@@ -333,11 +314,11 @@ fun MarkdownBlock(
         settings.quoteColor.ifBlank { if (darkMode) "#E18A24" else "#C7731E" }
     } else null
     val coloredContent = if (localQuoteColor == null) {
-        display
+        plainSource
     } else {
         val bracketColor = settings.bracketColor.ifBlank { if (darkMode) "#7EAFC4" else "#5B8DEF" }
         // 分段处理：配对永不跨代码块，否则跨块引号/括号会把 span 注进代码块
-        display.transformOutsideCodeBlocks { segment ->
+        plainSource.transformOutsideCodeBlocks { segment ->
             val latexSpans = LATEX_SPAN_REGEX.findAll(segment).map { it.range }.toList()
             TEXT_COLOR_REGEX.replace(segment) { match ->
                 val opener = match.value.firstOrNull()
