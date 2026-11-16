@@ -58,23 +58,33 @@ class KeepAliveService : Service() {
             return START_NOT_STICKY
         }
 
-        // 每次应用起来，把守护那几个线程自动挂回去——不用再等人说"续命"
+        // 应用一起来就把守护那几个线程挂回去；之后每 10 分钟自检一次，
+        // 线程死了（进程还在但线程崩了、或系统回收过）就补上——
+        // 之前只挂一次，结果线程一死就再也没人拉，表现是读屏/点评静默好几天。
         Thread {
-            runCatching {
-                if (!com.chaquo.python.Python.isStarted()) {
-                    com.chaquo.python.Python.start(
-                        com.chaquo.python.android.AndroidPlatform(applicationContext)
+            while (true) {
+                runCatching {
+                    if (!com.chaquo.python.Python.isStarted()) {
+                        com.chaquo.python.Python.start(
+                            com.chaquo.python.android.AndroidPlatform(applicationContext)
+                        )
+                    }
+                    val py = com.chaquo.python.Python.getInstance()
+                    py.getModule("builtins").callAttr(
+                        "exec",
+                        """
+                        import sys, threading
+                        p = '/sdcard/Download/06_脚本/mirrow'
+                        if p not in sys.path:
+                            sys.path.insert(0, p)
+                        names = [t.name for t in threading.enumerate()]
+                        if 'guardian' not in names:
+                            import autostart
+                            autostart.main()
+                        """.trimIndent(),
                     )
                 }
-                val py = com.chaquo.python.Python.getInstance()
-                py.getModule("builtins").callAttr(
-                    "exec",
-                    "import sys\n" +
-                        "p = '/sdcard/Download/06_脚本/mirrow'\n" +
-                        "if p not in sys.path: sys.path.insert(0, p)\n" +
-                        "import autostart\n" +
-                        "autostart.main()",
-                )
+                try { Thread.sleep(10 * 60 * 1000L) } catch (_: Exception) { return@Thread }
             }
         }.apply { isDaemon = true }.start()
 
