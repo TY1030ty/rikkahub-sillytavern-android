@@ -1,8 +1,6 @@
 package me.rerere.rikkahub.ui.pages.chat
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -532,15 +530,6 @@ fun ChatDrawerContent(
                     }
                 }
 
-                // 抽屉下半截入口太多时，整列超出屏幕且没有滚动容器——手指划不动。
-                // 给它一个限高 + 滚动，入口再多也能翻。
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 300.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
                 DrawerAction(
                     icon = {
                         Icon(HugeIcons.InLove, stringResource(R.string.favorite_page_title))
@@ -565,6 +554,8 @@ fun ChatDrawerContent(
                     },
                 )
 
+                Spacer(Modifier.weight(1f))
+
                 DrawerAction(
                     icon = {
                         Icon(HugeIcons.Settings03, null)
@@ -574,7 +565,6 @@ fun ChatDrawerContent(
                         navController.navigate(Screen.Setting)
                     },
                 )
-                }
             }
         }
         }
