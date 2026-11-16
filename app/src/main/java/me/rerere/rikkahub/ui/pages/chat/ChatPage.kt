@@ -609,10 +609,6 @@ private fun ChatPageContent(
     // WebView 工具条点按钮 → 原生菜单；处理完清空避免重复触发
     var proxyMenu by remember { mutableStateOf<String?>(null) }
     val pageScope = rememberCoroutineScope()
-    // 三态：自动识别（开场白/角色世界书含网页）/ 强制开 / 强制关
-    val frontendCardPreferredNow = remember(setting, conversation) {
-        resolveFrontendCardMode(setting, conversation)
-    }
     // 前端插件只在前端 WebView 模式生效：脚本随启用状态变化重新下发
     val pluginManager: me.rerere.rikkahub.plugin.manager.PluginManager = koinInject()
     val pluginList by pluginManager.plugins.collectAsStateWithLifecycle()
