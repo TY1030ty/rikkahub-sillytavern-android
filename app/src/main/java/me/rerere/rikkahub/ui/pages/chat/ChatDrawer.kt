@@ -527,16 +527,34 @@ fun ChatDrawerContent(
                                 navController.navigate(Screen.Favorite)
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.chat_drawer_stats)) },
-                            leadingIcon = { Icon(HugeIcons.ChartColumn, null) },
-                            onClick = {
-                                showMenuPopup = false
-                                navController.navigate(Screen.Stats)
-                            }
-                        )
                     }
                 }
+
+                DrawerAction(
+                    icon = {
+                        Icon(HugeIcons.InLove, stringResource(R.string.favorite_page_title))
+                    },
+                    label = {
+                        Text(stringResource(R.string.favorite_page_title))
+                    },
+                    onClick = {
+                        navController.navigate(Screen.Favorite)
+                    },
+                )
+
+                DrawerAction(
+                    icon = {
+                        Icon(HugeIcons.ChartColumn, stringResource(R.string.chat_drawer_stats))
+                    },
+                    label = {
+                        Text(stringResource(R.string.chat_drawer_stats))
+                    },
+                    onClick = {
+                        navController.navigate(Screen.Stats)
+                    },
+                )
+
+                Spacer(Modifier.weight(1f))
 
                 DrawerAction(
                     icon = {
