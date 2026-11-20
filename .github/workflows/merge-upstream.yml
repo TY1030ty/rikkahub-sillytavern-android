@@ -1,27 +1,29 @@
-name: Merge Upstream
+name: MergeUpstream
 on:
-  workflow_dispatch:
+  push:
+    branches: [ying-3.3.0]
 permissions:
   contents: write
 jobs:
   merge:
+    if: "!contains(github.event.head_commit.message, '[skip-ci]')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ying-3.3.0
       - name: merge huadeng
         run: |
-          git config user.name "shadow-merge-bot"
-          git config user.email "bot@localhost"
-          git remote add upstream https://github.com/MiaoWuNYA/rikkahub-sillytavern-android.git
+          git config user.name shadow-bot
+          git config user.email bot@localhost
+          git remote add upstream https://github.com/MiaoWuNYA/rikkahub-sillytavern-android.git || true
           git fetch upstream huadeng
-          if git merge upstream/huadeng --no-edit; then
-            echo "MERGE_OK"
+          if git merge upstream/huadeng --no-edit -m "Merge upstream huadeng 3.3.0 [skip-ci]"; then
+            echo "===== MERGE_OK ====="
+            git log -1 --oneline
             git push origin HEAD:ying-3.3.0
           else
-            echo "===== CONFLICTS ====="
+            echo "===== CONFLICT FILES ====="
             git diff --name-only --diff-filter=U
             exit 1
           fi
