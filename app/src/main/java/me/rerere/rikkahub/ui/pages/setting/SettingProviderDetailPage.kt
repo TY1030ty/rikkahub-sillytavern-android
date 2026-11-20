@@ -101,6 +101,7 @@ import me.rerere.hugeicons.stroke.ArrowDown01
 import me.rerere.hugeicons.stroke.Cancel01
 import me.rerere.hugeicons.stroke.Connect
 import me.rerere.hugeicons.stroke.Delete01
+import me.rerere.hugeicons.stroke.Delete02
 import me.rerere.hugeicons.stroke.FloppyDisk
 import me.rerere.hugeicons.stroke.Package01
 import me.rerere.hugeicons.stroke.Settings03
@@ -138,7 +139,7 @@ import me.rerere.rikkahub.ui.hooks.useEditState
 import me.rerere.rikkahub.ui.pages.assistant.detail.CustomBodies
 import me.rerere.rikkahub.ui.pages.assistant.detail.CustomHeaders
 import me.rerere.rikkahub.ui.pages.setting.components.ProviderConfigure
-import me.rerere.rikkahub.ui.pages.setting.components.ProviderConnectionTester
+import me.rerere.rikkahub.ui.pages.setting.components.ProviderConnectionTestDialog
 import me.rerere.rikkahub.ui.pages.setting.components.SettingProviderQuotaQuery
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.ui.theme.extendColors
@@ -302,6 +303,7 @@ private fun SettingProviderConfigPage(
 ) {
     var internalProvider by remember(provider) { mutableStateOf(provider) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showTestDialog by remember { mutableStateOf(false) }
     var expanded by rememberSaveable { mutableStateOf(true) }
 
     Box(
@@ -366,9 +368,9 @@ private fun SettingProviderConfigPage(
                 expanded = expanded,
                 colors = CustomColors.floatingToolbarColors,
                 leadingContent = {
-                    ProviderConnectionTester(
-                        internalProvider = internalProvider,
-                    )
+                    IconButton(onClick = { showTestDialog = true }) {
+                        Icon(HugeIcons.Connect, null)
+                    }
 
                     if (!internalProvider.builtIn) {
                         IconButton(
@@ -405,6 +407,14 @@ private fun SettingProviderConfigPage(
                 }
             }
         }
+    }
+
+    // 工具栏在键盘弹出时会被移出 composition，dialog 不能挂在它下面
+    if (showTestDialog) {
+        ProviderConnectionTestDialog(
+            internalProvider = internalProvider,
+            onDismissRequest = { showTestDialog = false },
+        )
     }
 
     // Delete confirmation dialog
@@ -505,6 +515,7 @@ private fun ModelList(
         }
     }
     var showPruneDialog by remember { mutableStateOf(false) }
+    var showClearAllDialog by remember { mutableStateOf(false) }
     var expanded by rememberSaveable { mutableStateOf(true) }
     val lazyListState = rememberLazyListState()
     val currentSetting by rememberUpdatedState(providerSetting)
@@ -563,6 +574,16 @@ private fun ModelList(
                 .align(Alignment.BottomCenter)
                 .offset(y = -ScreenOffset),
             leadingContent = {
+                if (providerSetting.models.isNotEmpty()) {
+                    Tooltip(tooltip = { Text(stringResource(R.string.setting_provider_page_clear_all_models)) }) {
+                        IconButton(onClick = { showClearAllDialog = true }) {
+                            Icon(
+                                HugeIcons.Delete02,
+                                stringResource(R.string.setting_provider_page_clear_all_models),
+                            )
+                        }
+                    }
+                }
                 if (staleModels.isNotEmpty()) {
                     Tooltip(
                         tooltip = {
@@ -595,6 +616,20 @@ private fun ModelList(
                 onUpdateProvider = onUpdateProvider
             )
         }
+    }
+
+    RikkaConfirmDialog(
+        show = showClearAllDialog,
+        title = stringResource(R.string.setting_provider_page_clear_all_models),
+        confirmText = stringResource(R.string.delete),
+        dismissText = stringResource(R.string.cancel),
+        onConfirm = {
+            showClearAllDialog = false
+            onUpdateProvider(providerSetting.copyProvider(models = emptyList()))
+        },
+        onDismiss = { showClearAllDialog = false },
+    ) {
+        Text(stringResource(R.string.setting_provider_page_clear_all_models_confirm))
     }
 
     RikkaConfirmDialog(

@@ -11,7 +11,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import me.rerere.ai.ui.UIMessage
 import me.rerere.rikkahub.data.datastore.ConversationSortOrder
 import me.rerere.rikkahub.data.db.AppDatabase
 import me.rerere.rikkahub.data.db.fts.MessageFtsManager
@@ -24,6 +23,7 @@ import me.rerere.rikkahub.data.db.entity.MessageNodeEntity
 import me.rerere.rikkahub.data.files.FilesManager
 import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.data.model.MessageNode
+import me.rerere.rikkahub.data.sync.ForeignBackupCompat
 import me.rerere.rikkahub.utils.JsonInstant
 import java.time.Instant
 import kotlin.uuid.Uuid
@@ -335,14 +335,25 @@ class ConversationRepository(
         } else {
             conversation
         }
-        messageFtsManager.deleteConversation(conversation.id.toString())
+        val conversationId = conversation.id.toString()
+        messageFtsManager.deleteConversation(conversationId)
         database.withTransaction {
+            // 收藏表和会话没有外键，要单独删
+            favoriteDAO.deleteNodeFavoritesOfConversation(conversationId)
             // message_node 会通过 CASCADE 自动删除
             conversationDAO.delete(
                 conversationToConversationEntity(conversation)
             )
         }
         filesManager.deleteChatFiles(fullConversation.files)
+    }
+
+    /** 删除这些节点的收藏，节点从会话里移除后调用 */
+    suspend fun deleteNodeFavorites(conversationId: Uuid, nodeIds: Collection<Uuid>) {
+        nodeIds
+            .map { NodeFavoriteAdapter.buildRefKey(conversationId.toString(), it.toString()) }
+            .chunked(500)
+            .forEach { favoriteDAO.deleteByRefKeys(it) }
     }
 
     suspend fun searchMessages(
@@ -544,7 +555,7 @@ class ConversationRepository(
                 }
                 if (page.isEmpty()) break
                 page.forEach { entity ->
-                    val messages = JsonInstant.decodeFromString<List<UIMessage>>(entity.messages)
+                    val messages = ForeignBackupCompat.decodeMessages(entity.messages, JsonInstant)
                     val nodeId = Uuid.parse(entity.id)
                     nodes.add(
                         MessageNode(
