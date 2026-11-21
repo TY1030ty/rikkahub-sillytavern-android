@@ -268,6 +268,30 @@ class ProactiveMessageService : KoinComponent {
         val sb = StringBuilder()
         sb.appendLine("[主动消息上下文]")
 
+        // 当前时间必须放在第一行：先说现在几点，再谈别的。
+        // 以前这行埋在「距离上次聊天」后面，模型总顺着历史最后一条（比如昨晚的
+        // 「手机放远，先闭眼」）往下写，于是上午十一点还会冒出「手给我，睡了」。
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+        val nowMs = System.currentTimeMillis()
+        val rounded = nowMs - (nowMs % (5 * 60_000))
+        val cal = java.util.Calendar.getInstance()
+        cal.timeInMillis = rounded
+        val weekNames = arrayOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
+        val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+        val slot = when (hour) {
+            in 5..8 -> "清晨"
+            in 9..11 -> "上午"
+            12 -> "中午"
+            in 13..16 -> "下午"
+            in 17..18 -> "傍晚"
+            in 19..22 -> "晚上"
+            else -> "深夜"
+        }
+        sb.appendLine(
+            "当前时间: ${sdf.format(java.util.Date(rounded))} " +
+                "${weekNames[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1]} $slot"
+        )
+
         // 距上次聊天
         try {
             val lastMs = getLastMessageTimeMs(assistantId)
@@ -287,17 +311,14 @@ class ProactiveMessageService : KoinComponent {
             Log.w(TAG, "Failed to get last message time", e)
         }
 
-        // 当前时间：对齐 5 分钟边界。主动消息请求复用对话的消息历史，秒级时间戳会让
-        // 每次触发的请求前缀都不同，也和普通聊天的缓存前缀互相打架
-        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
-        val nowMs = System.currentTimeMillis()
-        val rounded = nowMs - (nowMs % (5 * 60_000))
-        sb.appendLine("当前时间: ${sdf.format(java.util.Date(rounded))}")
 
         sb.appendLine()
         sb.appendLine("请根据以上上下文，以自然、关心、有趣的方式主动给用户发一条消息。")
         sb.appendLine()
         sb.appendLine("重要规则：")
+        sb.appendLine("- 先看第一行的当前时间再开口，你说的话必须符合这个时间点：现在是上午就不能说睡前的话，晚上也不能说早上的事")
+        sb.appendLine("- 如果对话里上一轮是深夜（提到睡、晚安、闭眼、手机放远），而现在是白天，绝对不要接着睡前的话题往下说，要当作新的一天重新开口")
+        sb.appendLine("- 距离上次聊天超过 4 小时，就当作新的一天，不要延续上一轮的情绪和话题")
         sb.appendLine("- 绝对不要复述上一轮的对话内容，要发新的话题或新的关心")
         sb.appendLine("- 如果上一轮已经说过类似的话，这次换一个完全不同的角度")
         sb.appendLine("- 不要提及你是在定时发消息，要像自然想起对方一样")
