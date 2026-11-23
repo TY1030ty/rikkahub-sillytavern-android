@@ -1259,6 +1259,8 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data object DataBoard : Screen
+
+    @Serializable
     data object MessageSearch : Screen
 
     @Serializable
